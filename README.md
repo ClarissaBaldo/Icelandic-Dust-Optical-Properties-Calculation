@@ -1,2 +1,2 @@
 # Research_codes_examples
- Supportin reseacrh code for Clarissa PhD thesis
+ Supporting research codes for Clarissa PhD thesis
