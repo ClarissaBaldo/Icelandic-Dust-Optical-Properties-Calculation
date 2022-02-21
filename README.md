@@ -1,5 +1,5 @@
 # Research_codes_examples
- Supporting research codes for Clarissa PhD thesis
+## Supporting research codes for Clarissa PhD thesis
 
 The script **"Size_distribution_data_processing_12min"** contains the codes used to process GRIMM and SMPS measurements and merged these into a single size distribution with a time resolution of 12 min.
 
