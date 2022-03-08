@@ -18,3 +18,5 @@ The folder **"Retrival_k_n_SSA_average"** contains the codes used to retrieve th
 **"Comparison_Babs_avarage_calc_vs_meas_part2"**: comparison between the absorption coefficients modelled and measured.
 **"Calculation_SSA_average_model_part3"**: retrieval of the experiment-averaged single scattering albedo.
 **"Comparison_Bsca_Babs_SSA_average_part4"**: retrieval of the real part and imaginary part of the complex refractive index.
+
+The uploaded html files contain the codes together with example plots. You can download the files to view them.
