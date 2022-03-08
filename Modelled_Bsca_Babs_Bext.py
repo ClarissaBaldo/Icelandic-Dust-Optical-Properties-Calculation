@@ -1,5 +1,4 @@
 #####################################################################################
-# Python codes for Clarissa's optical calcuations
 # online user guide: https://pymiescatt.readthedocs.io/en/latest/
 
 # import packages needed
@@ -9,12 +8,11 @@ import pandas as pd
 import PyMieScatt as mie
 
 #####################################################################################
+# calculation of the scattering coefficient (Bsca), absorption coefficient (Babs),
+# and extinction coefficient (Bext) based on size distribution data
 #####################################################################################
 
-# move to working directory
-os.chdir("Z:\\Clarissa\\Data_Optical_calculation\\R_Code\\Code_final\\ICEdust_samples\\Maeli2\\datasets\\SD_output\\original")
-
-# import the dataset for all scenarios
+# import the size distribution dataset for all scenarios
 Aet_all = pd.read_csv('Maeli2_SD_average_original.csv')
 
 # multiply dN/dLog by dLog (1/64) to obtain dN, thus divide the measurements by 64
@@ -25,6 +23,11 @@ for i in range(5, Aet_all.shape[1]):
 Aet_all['Dg'] = Aet_all['Dg']*1000
 
 # list all scenarios by "Xnk"
+# X = dynamic shape factor
+# n = real part of the complex refractive index (m = n - ik)
+# k = imaginary part of the complex refractive index
+# X, n, and k parameters were used to correct size distribution measurements from GRIMM and SMPS
+
 scenarios = pd.unique(Aet_all['Xnk'])
 
 # group data by scenarios
@@ -38,11 +41,11 @@ for i in range(len(scenarios)):
   Aet_list[i] = Aet_list[i].reset_index(drop=True)
 
 #####################################################################################
+# perform mie calculation
 #####################################################################################
-# "perform_mie_calculation"
 
 def perform_mie_calculation(INPUT_DATA,INPUT_WAVELENGTH):
-  """This is to prepare the data using the size distribution from a certain instrument, to calcualte the Mie coefficients, 
+  """This is to prepare the data using the size distribution from a certain instrument, to calcualte the mie coefficients, 
        and save relevant results. The INPUT_DATA is a data frame for a single scenario that needs to be processed.
        Use a for loop later to apply this function to all scenarios"""
 
@@ -74,15 +77,15 @@ mie_results = []
 for i in range(len(df)):
   mie_results.append(mie.Mie_SD(m,wavelength,df[i]['Dg'],df[i].iloc[:,2],asDict=True))
 
-# extract relevant results from mie coefficients        
+# extract relevant results from Mie coefficients        
 Bext = []
 Bsca = []
 Babs = []
 
 for i in range(len(mie_results)):
   Bext.append(mie_results[i]['Bext'])
-Bsca.append(mie_results[i]['Bsca'])
-Babs.append(mie_results[i]['Babs'])  
+  Bsca.append(mie_results[i]['Bsca'])
+  Babs.append(mie_results[i]['Babs'])  
 
 # genereate the column for Time steps
 Time = (pd.DataFrame(columns=['NULL'],index=pd.date_range('2019-01-21 11:07:00', '2019-01-21 13:55:00',freq='12T'))
@@ -99,7 +102,8 @@ Instrument_output_data = pd.DataFrame(data=Instrument_output_data)
 return Instrument_output_data
 
 #####################################################################################
-# apply the function for all scenarios and save the results
+
+# apply the function for all scenarios and save the results at 450 nm
 
 # data from all scenarios are held at: Aet_list
 Aet_output_450nm = [perform_mie_calculation(data, 450) for data in Aet_list]

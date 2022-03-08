@@ -1,3 +1,7 @@
+
+#####################################################################################
+# online user guide: https://pymiescatt.readthedocs.io/en/latest/
+
 # import packages needed
 import os
 import numpy as np
@@ -5,8 +9,12 @@ import pandas as pd
 import PyMieScatt as mie
 import math
 
-################################################################################################################################
-# import the dataset for all scenarios
+#####################################################################################
+# calculation of the scattering coefficient (Bsca) for scattering angles 
+# (theta) from 7-170 based on size distribution data
+#####################################################################################
+
+# import the size distribution dataset for all scenarios
 Nep_all = pd.read_csv('Maeli2_SD_average_original.csv')
 
 # multiply dN/dLog by dLog (1/64) to obtain dN, thus divide the measurements by 64
@@ -17,12 +25,12 @@ for i in range(5, Nep_all.shape[1]):
 Nep_all['Dg'] = Nep_all['Dg']*1000
 
 # list all scenarios by "Xnk"
-scenarios = pd.unique(Nep_all['Xnk'])
+# X = dynamic shape factor
+# n = real part of the complex refractive index (m = n - ik)
+# k = imaginary part of the complex refractive index
+# X, n, and k parameters were used to correct size distribution measurements from GRIMM and SMPS
 
-print("number of scenarios:",len(scenarios))
-print("first scenario:",scenarios[0])
-print("last scenario:",scenarios[-1])
-print("all scenarios:",scenarios,sep = "\n")
+scenarios = pd.unique(Nep_all['Xnk'])
 
 # group data by scenarios
 Nep_list = []
@@ -33,9 +41,10 @@ for i in range(len(scenarios)):
 # reset index
 for i in range(len(scenarios)):
     Nep_list[i] = Nep_list[i].reset_index(drop=True)
-    
-################################################################################################################################  
-# Correction for truncation #
+
+#####################################################################################    
+# calculate Bsca for theta between 7 and 170 degrees  
+#####################################################################################
 
 # define a function to calculate the increment d(theta)  
 def calculate_d_theta(df):
@@ -52,7 +61,16 @@ def calculate_SU_sin_theta_average(df):
     return SU_sin_theta_average
 
 #####################################################################################
-# define the function to calculate Bsca for theta from 7-170: "calculate_Bsca_7170"
+
+# define the function to calculate Bsca for theta from 7-170
+
+# calculate the single particle scattering efficiency (Qsca) using the angular function:
+# scatteringFunction(m, wavelength, diameter[, nMedium=1.0, minAngle=0, maxAngle=180, angularResolution=0.5, space='theta', angleMeasure='radians', normalization=None])
+# from the output you will select the first array, which is theta
+# and the fourth array which is SU, the scattered intensity of unpolarized light, 
+# which is the average of SL, perpendicular light, and SR, parallel light
+
+# Bsca is calculated as the integral of Qsca over the particle size distribution multiplied by the particle cross sectional area
 
 def calculate_Bsca_7170(INPUT_DATA,INPUT_WAVELENGTH):
     
@@ -90,7 +108,7 @@ def calculate_Bsca_7170(INPUT_DATA,INPUT_WAVELENGTH):
                                                      'SU':SU[i],
                                                      'sin_theta': sin_theta[i],
                                                      'SU_sin_theta':SU_sin_theta[i]}))
-    # subset the data
+    # subset the data for theta between 7-170 degree
     theta_7170 = [df[(df['theta'] >= (np.pi/180)*7) & (df['theta'] <= (np.pi/180)*170)] for df in Output_angular_function]
     
     # reset the index in theta_7170
@@ -114,14 +132,14 @@ def calculate_Bsca_7170(INPUT_DATA,INPUT_WAVELENGTH):
     for i in range(len(SU_sin_theta_dtheta_7170)):
         sum_SU_sin_theta_dtheta_7170.append(SU_sin_theta_dtheta_7170[i].sum())
 
-    # Calculate Qsca(Dp) = (wavelength^2)/(pi^2*Dp^2)*sum_SU_sin_theta_dtheta_7170(Dp)
+    # calculate Qsca(Dp) = (wavelength^2)/(pi^2*Dp^2)*sum_SU_sin_theta_dtheta_7170(Dp)
     Q_7170 = []
 
     # the number of rows changes! use INPUT_DATA.shape[0]
     for i in range(INPUT_DATA.shape[0]):
         Q_7170.append(sum_SU_sin_theta_dtheta_7170[i]*((INPUT_WAVELENGTH**2)/((math.pi**2)*(INPUT_DATA['Dg'][i]**2))))
     
-    # For each date-time, calculate Bsca for theta from 7-170
+    # for each date-time, calculate Bsca for theta from 7-170
     # save a copy of the size distribution of the first scenario in the Nep_list
     Bsca_7170 = INPUT_DATA.copy()
 
@@ -132,7 +150,7 @@ def calculate_Bsca_7170(INPUT_DATA,INPUT_WAVELENGTH):
     for i in range(6,Bsca_7170.shape[1]):
         Bsca_7170.iloc[:,i] = Bsca_7170.iloc[:,i]*Bsca_7170.iloc[:,5]*((math.pi*Bsca_7170.iloc[:,4]**2)/4)
     
-    # For each date time, calculate Bsca as the integral of Qsca, which is the sum of dN(Dp)*Qsca(Dp)*((pi*(Dp)^2)/4) contributions
+    # for each date time, calculate Bsca as the integral of Qsca, which is the sum of dN(Dp)*Qsca(Dp)*((pi*(Dp)^2)/4) contributions
     # Bsca(Mm^-1) = 10^(-6) * sum of dN(Dp)*Qsca(Dp)*((pi*(Dp)^2)/4) contributions
     Bsca_7170_time_serie = []
 
@@ -150,10 +168,12 @@ def calculate_Bsca_7170(INPUT_DATA,INPUT_WAVELENGTH):
     return Bsca_7170_time_serie
 
 #####################################################################################
+
 # apply the function for all scenarios and save the results
 Bsca_7170_450nm = [calculate_Bsca_7170(data, 450) for data in Nep_list]
 
 #####################################################################################
+
 # combine the "Xnk" marker and the results
 for i in range(len(scenarios)):
     Bsca_7170_450nm[i].insert(0,'Xnk', scenarios[i])

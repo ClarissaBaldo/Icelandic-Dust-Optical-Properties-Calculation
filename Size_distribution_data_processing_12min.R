@@ -1,14 +1,14 @@
-#############################################################################################################
+#####################################################################################################
 # upload packages
-#############################################################################################################
+#####################################################################################################
 
 library(dplyr)
 library(rlist)
 library(tibble)
 
-#############################################################################################################
+#####################################################################################################
 # usefull functions
-#############################################################################################################
+#####################################################################################################
 
 # function to convert list into df
 convert_list_df <- function(df_list){
@@ -20,21 +20,20 @@ convert_list_df <- function(df_list){
   return(df)
 }
 
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # GRIMM (GRM) corrections
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
-######################################################################################################
+#####################################################################################################
 # import the files for correction from optical diameter (Dop) to geometric diameter (Dg)
-######################################################################################################
+#####################################################################################################
 
 setwd("Z:/Clarissa/Data_Optical_Calculation/SIZE")
 
 # n = 1.57-1.63, for k use 0.001 step resolution from 0 to 0.02
+# where n is the real part of the complex refractive index and k is the imaginary part
 k_sequence <- seq(0.000000, 0.02, by = 0.001)
 
 # create file_name seq to use as pattern
@@ -59,7 +58,6 @@ files <- unlist(files_list)
 # remove terms from R environment except for:
 rm(list=setdiff(ls(), c("files","convert_list_df")))
 
-
 # import the selected correction files
 Datafile <- list()
 
@@ -71,9 +69,9 @@ for (i in 1:length(files)){
 # save the correction files, n = 1.57-1.63, k =0.000-0.02
 GRM_Dg <- Datafile
 
-######################################################################################################
+#####################################################################################################
 # replace those diameters giving negative dlogDg with the neighbours average values
-######################################################################################################
+#####################################################################################################
 
 # keep only the column with the corrected Dg
 for (i in 1:length(GRM_Dg)) {
@@ -90,11 +88,11 @@ for (i in 1:length(GRM_Dg)) {
   }
 }
 
-######################################################################################################
+#####################################################################################################
 # calculate the new midpoints from Dg
-######################################################################################################
+#####################################################################################################
 
-# Calculate the geometric midpoint diameters (midpoint Dg) = (D1*D2)^1/2
+# calculate the geometric midpoint diameters (midpoint Dg) = (D1*D2)^1/2
 
 # create a list of empty array
 midpoint_GRM <- list()
@@ -113,9 +111,9 @@ for (i in 1:length(GRM_Dg)){
   }
 }
 
-######################################################################################################
-# calculate the dlogDg
-######################################################################################################
+#####################################################################################################
+# calculate dlogDg
+#####################################################################################################
 
 # create a list of empty array
 GRM_dlogDg <- list()
@@ -132,38 +130,40 @@ for (i in 1:length(GRM_Dg)){
   }
 }
 
-######################################################################################################
-# Import GRM data and tidy up the dataset
-######################################################################################################
+#####################################################################################################
+# import GRM data and tidy up the dataset
+#####################################################################################################
 
 GRM_data <- read.csv("Z:/Clarissa/Data_Optical_calculation/CLA_DATA/GRIMM/Maeli2_GRM.csv", header = T)
 
-# Convert the date as POSIXct
+# convert the date as POSIXct
 GRM_data$Date <- as.POSIXct(GRM_data$Date,  format =  "%Y-%m-%d %H:%M:%S")
 
-# Round to minutes
+# round to minutes
 GRM_data$Date <- strptime(GRM_data$Date,  format = "%Y-%m-%d %H:%M")
 GRM_data$Date <- as.POSIXct(GRM_data$Date,  format =  "%Y-%m-%d %H:%M:%S")
 
 colnames(GRM_data)[1] <- "date"
 
-######################################################################################################
+#####################################################################################################
 # GRM - TimeAverage (TA) calculation
-######################################################################################################
+#####################################################################################################
+
 # GRM and SMPS must have the same time
-# I want to transfrom both in 12 min average
+# transfrom both in 12-min average
 
-# check the date-time columnames is "date"
+# check the date-time column name is "date"
 
-# select the date since the sampling has started
-# Note for Maeli2 the starting sampling time is 11:07, 
+# select the date-time since filter sampling has started
+# note for Maeli2 the starting sampling time is 11:07, 
 GRM_data_subset <- subset(GRM_data, GRM_data$date >= 	"2019-01-21 11:07:00")
 
 # verify the presence of duplicates in the row sequence
 GRM_data_subset <- GRM_data_subset[which(duplicated(GRM_data_subset$date) == F),]
 
-#############################################################################################################
-# function to calculate the time average at different time resoluiton (here 12min)
+#####################################################################################################
+
+# function to calculate the time average at different time resoluiton (here 12 min)
 
 timeAverage_12min <- function(df) {
   # create a complete sequence of date-time 
@@ -175,14 +175,14 @@ timeAverage_12min <- function(df) {
   # the missing date-time will be shown now as NA
   df <- full_join(date_seq, df, by = NULL)
   
-  # to calculate 12 minute average split the data in #df = dim(df)[1]/12 of 12 rows
+  # to calculate 12-min average split the data in #df = dim(df)[1]/12 of 12 rows
   
   # first, calculate the nrow to delete to average constant time intervals
   if ((dim(df)[1]- round(dim(df)[1]/12)*12) < 0) {
     df <-df[1:(dim(df)[1]- (dim(df)[1]- (round(dim(df)[1]/12)-1)*12)),]
   } else {df <-df[1:(dim(df)[1]- (dim(df)[1]- round(dim(df)[1]/12)*12)),]} 
   
-  # split the df in constant time intervals
+  # split the dfs in constant time intervals
   df_split <- split(df,rep(1:round(dim(df)[1]/12),each=12))
   
   # calculate the average
@@ -194,21 +194,22 @@ timeAverage_12min <- function(df) {
     }
   }
   
-  # get the time-averaged sequence
+  # get the time sequence at 12 min
   df_TA$date <- seq(as.POSIXct(df_split[[1]][1,1]), as.POSIXct(df_split[[length(df_split)]][1,1]), by = "12 min")
   
   return(df_TA)
 }
 
-#############################################################################################################
+#####################################################################################################
+
 # apply the function to calculate TA
 GRM_data_TA <- timeAverage_12min(GRM_data_subset)
 
 row.names(GRM_data_TA) <- c(1:nrow(GRM_data_TA))
 
-######################################################################################################
-# conversion from optical diameter to geometric diameter
-######################################################################################################
+#####################################################################################################
+# conversion from optical diameter (Dop) to geometric diameter (Dg)
+#####################################################################################################
 
 # replace the new midpoint Dg in the original df (GRM_data_TA)
 GRM_data_conv <- list()
@@ -220,9 +221,9 @@ for (i in 1:length(midpoint_GRM)){
 
 # dN does not change, just replace the optical diameters with the new midpoint Dg
 
-######################################################################################################
+#####################################################################################################
 # calculate dN/dlogDg for GRIMM data
-######################################################################################################
+#####################################################################################################
 
 # for each scenario (df in GRM_data_conv), divide the bin-sizes (midpoints-columns) by the corresponding calculated dlogDg value
 GRM_data_dNdlogDg <- GRM_data_conv
@@ -233,33 +234,30 @@ for (i in 1:length(GRM_data_conv)){
   }
 }
 
-# dN does not change, just replace the optical diameters with the new midpoint Dg
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # SMPS corrections
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
-######################################################################################################
-# Import SMPS data and tidy up the dataset
-######################################################################################################
+#####################################################################################################
+# import SMPS data and tidy up the dataset
+#####################################################################################################
 
 SMPS_data <- read.csv("Z:/Clarissa/Data_Optical_calculation/CLA_DATA/SMPS/SMPS_Maeli2.csv", skip = 1, header = T)
 
-# Combine Date and StartTime
-# Check and convert the format of the date first
+# combine Date and StartTime
+# check and convert the format of the date first
 SMPS_data$Date <- as.POSIXct(SMPS_data$Date,format = "%m/%d/%Y")
 
-# Combine date and time
+# combine date and time
 SMPS_data$DateTime <- as.POSIXct(paste(SMPS_data$Date, SMPS_data$Start.Time), format="%Y-%m-%d %H:%M:%S")
 
-# Round to minutes
+# round to minutes
 SMPS_data$DateTime <- strptime(SMPS_data$DateTime,  format = "%Y-%m-%d %H:%M")
 SMPS_data$DateTime <- as.POSIXct(SMPS_data$DateTime,  format =  "%Y-%m-%d %H:%M:%S")
 
-# Put the DateTime column at the front and delete useless columns
+# put the DateTime column at the front and delete unnecessary columns
 SMPS_data <- SMPS_data[, c(111, 1:110)]
 SMPS_data <- SMPS_data[,-(2:3)]
 colnames(SMPS_data)[1] <- "date"
@@ -267,13 +265,14 @@ colnames(SMPS_data)[1] <- "date"
 # remove the last column with total dN 
 SMPS_data <- SMPS_data[-length(SMPS_data)]
 
-######################################################################################################
+#####################################################################################################
 # SMPS - TimeAverage calculation
-######################################################################################################
-# GRIMM and SMPS must have the same time
-# I want to transfrom both in 12 min average
+#####################################################################################################
 
-# check the date-time columnames is "date"
+# GRIMM and SMPS must have the same time
+# transfrom both in 12-min average
+
+# check the date-time column name is "date"
 
 # select the date since the sampling has started
 SMPS_data_subset <- subset(SMPS_data, SMPS_data$date >= 	"2019-01-21 11:07:00")
@@ -289,9 +288,9 @@ row.names(SMPS_data_TA) <- c(1:nrow(SMPS_data_TA))
 # GRM and SMPS data must have the same time interval
 SMPS_data_TA <- subset(SMPS_data_TA, SMPS_data_TA$date >= GRM_data_TA[1,1] & SMPS_data_TA$date <= GRM_data_TA[nrow(GRM_data_TA),1])
 
-######################################################################################################
+#####################################################################################################
 # get the mobility diameter (Dm)
-######################################################################################################
+#####################################################################################################
 
 # for Dm = 881.7 nm there are no measurement records
 # remove the last column corresponding to Dm = 881.7 nm
@@ -306,9 +305,9 @@ for (i in 1:length(SMPS_Dm)) {
 
 SMPS_Dm <- as.numeric(as.character(SMPS_Dm))
 
-######################################################################################################
+#####################################################################################################
 # conversion from mobility diameter (Dm) to geometric diameter (Dg)
-######################################################################################################
+#####################################################################################################
 
 # transform Dm into Dg
 # Dg = Dm/dyn_shape_factor * Cun_Dg/Cun_Dm
@@ -325,9 +324,10 @@ for (i in 1:length(dyn_shape_factor)) {
   SMPS_Dm_list[[i]] <- SMPS_Dm
 }
 
-######################################################################################################
+#####################################################################################################
 # calculate the Cunningham slip correction factor (Cun)
-######################################################################################################
+#####################################################################################################
+
 # the Cunningham slip correction factor is calculated assuming a mean free path of 66 nm (air condition) 
 
 # Dp (particle diameter) > 100 nm, 1 + (66/Dp)*2.52
@@ -374,7 +374,7 @@ for (i in 1:length(SMPS_Dm_list)){
   for (j in 1:length(SMPS_Dm_list[[i]])){
     x <- SMPS_Dg[[i]][[j]]
     f_test <- function(x) (SMPS_Dm_list[[i]][j]/dyn_shape_factor[[i]]*(convert_test(x)/Cun_Dm[[i]][j]) - x)
-    SMPS_Dg[[i]][j] <- print(uniroot(f_test, lower=0, upper=1e+09, extendInt = "yes")$root)
+    SMPS_Dg[[i]][j] <- uniroot(f_test, lower=0, upper=1e+09, extendInt = "yes")$root
   }
 }
 
@@ -397,9 +397,9 @@ for (i in 1:length(SMPS_Dg)) {
   SMPS_Dg[[i]] <- SMPS_Dg[[i]]*0.001
 }
 
-######################################################################################################
+#####################################################################################################
 # replace the new midpoint Dg in the original dataset (SMPS_data)
-######################################################################################################
+#####################################################################################################
 
 SMPS_data_conv <- list()
 
@@ -409,9 +409,9 @@ for (i in 1:length(SMPS_Dg)) {
   colnames(SMPS_data_conv[[i]])[-1] <- round(SMPS_Dg[[i]],6)
 }
 
-######################################################################################################
+#####################################################################################################
 # calculate dN/dlogDg for SMPS data
-######################################################################################################
+#####################################################################################################
 
 # for each scenario (df in SMPS_data_conv), divide the bin-sizes (midpoints-columns) by the corresponding calculated dlogDg value
 SMPS_data_dNdlogDg <- SMPS_data_conv
@@ -422,21 +422,19 @@ for (i in 1:length(SMPS_data_conv)){
   }
 }
 
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # Merging the datasets
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
 # remove terms from R environment except for:
 rm(list=setdiff(ls(), c("GRM_data_conv", "SMPS_data_conv", "files", "dyn_shape_factor", "GRM_data_TA", "SMPS_data_TA", 
                         "midpoint_GRM", "SMPS_Dg", "convert_list_df", "GRM_dlogDg", "SMPS_data_dNdlogDg", "GRM_data_dNdlogDg")))
 
-######################################################################################################
+#####################################################################################################
 # get the details for the n-k scenarios
-######################################################################################################
+#####################################################################################################
 
 # extrapolate the n and k values from the "files" list containing GRM corrections 
 GRM_nk <- strsplit(files,"_") # divide the string at the delimiter "_"
@@ -469,12 +467,13 @@ for (i in 1:length(SMPS_data_conv)) {
 }
 
 # check the output
-identical(nk_scenario[[1]][[147]], nk_scenario[[2]][[147]])
+identical(nk_scenario[[1]][[147]], nk_scenario[[2]][[147]]) # TRUE
 
-######################################################################################################
+#####################################################################################################
 # prepare GRM data for merging
-######################################################################################################
-# Each n-k scenario is copied # times = # X scenarios
+#####################################################################################################
+
+# each n-k scenario is copied # times = # X scenarios
 GRM_copy <- list()
 for (i in 1:length(SMPS_data_dNdlogDg)) {
   GRM_copy[[i]] <- list()
@@ -506,16 +505,15 @@ for (i in 1:length(SMPS_data_dNdlogDg)) {
 }
 
 # check the output
-identical(GRM_copy[[1]][[147]], GRM_copy[[2]][[147]])
-# check the output
-identical(GRM_Dg_copy[[1]][[147]], GRM_Dg_copy[[5]][[147]])
-# check the output
-identical(GRM_dlogDg_copy[[1]][[147]][,2], GRM_dlogDg_copy[[5]][[147]][,2])
+identical(GRM_copy[[1]][[147]], GRM_copy[[2]][[147]]) # TRUE
+identical(GRM_Dg_copy[[1]][[147]], GRM_Dg_copy[[5]][[147]]) # TRUE
+identical(GRM_dlogDg_copy[[1]][[147]][,2], GRM_dlogDg_copy[[5]][[147]][,2]) # TRUE
 
 #####################################################################################################
 # prepare SMPS data for merging
-######################################################################################################
-# Each X scenario is copied # times = # n-k scenarios
+#####################################################################################################
+
+# each dynamic shape factor (hereinafter referred to as X) scenario is copied # times = # n-k scenarios
 SMPS_copy <- list()
 for (i in 1:length(SMPS_data_dNdlogDg)) {
   SMPS_copy[[i]] <- list()
@@ -535,8 +533,8 @@ for (i in 1:length(SMPS_copy)) {
 }
 
 # check the output
-identical(SMPS_copy[[1]][[1]], SMPS_copy[[1]][[147]])
-identical(SMPS_copy[[1]][[1]], SMPS_copy[[5]][[1]])
+identical(SMPS_copy[[1]][[1]], SMPS_copy[[1]][[147]]) # TRUE
+identical(SMPS_copy[[1]][[1]], SMPS_copy[[5]][[1]]) # FALSE
 
 # the same for the SMPS diameters
 SMPS_Dg_copy <- SMPS_copy
@@ -548,12 +546,12 @@ for (i in 1:length(SMPS_copy)) {
 }
 
 # check the output
-identical(SMPS_Dg_copy[[1]][[1]], SMPS_Dg_copy[[1]][[147]])
-identical(SMPS_Dg_copy[[1]][[1]], SMPS_Dg_copy[[2]][[1]])
+identical(SMPS_Dg_copy[[1]][[1]], SMPS_Dg_copy[[1]][[147]]) # TRUE
+identical(SMPS_Dg_copy[[1]][[1]], SMPS_Dg_copy[[2]][[1]]) # FALSE
 
-######################################################################################################
+#####################################################################################################
 # merge the data
-######################################################################################################
+#####################################################################################################
 
 # merge the scenario info, SMPS and GRM data
 # we already selected the SMPS data for Dm >=  0.850 um
@@ -578,7 +576,7 @@ for (i in 1:length(SMPS_copy)) {
   }
 }
 
-# now merge the diameters
+# merge the diameters
 Dg_merged <- merged_data
 
 for (i in 1:length(merged_data)) {
@@ -592,7 +590,7 @@ for (i in 1:length(merged_data)) {
 i = 1
 j = 147
 
-# the number of columns in the merged dataframe must be equal to the the length of the merged Dg
+# the number of columns in the merged df must be equal to the the length of the merged Dg
 test <- merged_data[[i]][[j]][-c(1:4)]
 length(test) == length(Dg_merged[[i]][[j]])
 
@@ -600,9 +598,9 @@ length(test) == length(Dg_merged[[i]][[j]])
 k = 6
 as.numeric(unlist(strsplit(colnames(test)[k], "X"))[2]) == round(Dg_merged[[i]][[j]][k],6)
 
-######################################################################################################
+#####################################################################################################
 # Transpose column and rows, as for each time you want to show the size distribution
-######################################################################################################
+#####################################################################################################
 
 # build a function to transpose df
 transpose_df <- function(merged_df){
@@ -614,7 +612,7 @@ transpose_df <- function(merged_df){
   return(TS_merged_df) 
 }
 
-# apply the function to all the dfs in the list merged_data (merged SD)
+# apply the function to all dfs in the list merged_data (merged SD)
 TS_merged_data <- merged_data
 
 for (i in 1:length(merged_data)) {
@@ -628,13 +626,13 @@ i = 4
 j = 17
 
 # check the dimensions of the transposed df, they should be consistent with the original df
-length(TS_merged_data[[i]][[j]]) - nrow(merged_data[[i]][[j]]) == 1
-length(merged_data[[i]][[j]]) -4 == nrow(TS_merged_data[[i]][[j]])
+length(TS_merged_data[[i]][[j]]) - nrow(merged_data[[i]][[j]]) == 1 # TRUE
+length(merged_data[[i]][[j]]) -4 == nrow(TS_merged_data[[i]][[j]]) # TRUE
 
-# in the TS merged df the Dg values are as character
+# in the TS merged dfs the Dg values are as character
 # this is because they are extrapolated from the colnames
 # converting this to numeric can lead to errors
-# Thus, replace the Dg columns with the values in the Dg_merged list
+# thus, replace the Dg columns with the values in the Dg_merged list
 
 for (i in 1:length(Dg_merged)) {
   for (j in 1:length(Dg_merged[[i]])) {
@@ -642,332 +640,73 @@ for (i in 1:length(Dg_merged)) {
   }
 }
 
-######################################################################################################
-######################################################################################################
-######################################################################################################
-# interpolate the data - test Calib, X= 1, n=1.59, k=0
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+# plot an example of merged size distribution
+#####################################################################################################
+
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
+
+library(ggplot2)
+
+i = 1
+j = 3
+
+# for plotting the data using a log scale remove NAs and 0 values
+TS_merged_data_plot <- TS_merged_data[[i]][[j]][which(is.na(TS_merged_data[[i]][[j]][,4]) == F),]
+TS_merged_data_plot <- TS_merged_data_plot[which(TS_merged_data_plot[,4] != 0),]
+
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4]), color = 'black', shape = 19,  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle("Merging")+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= "none")  
+
+#####################################################################################################
+#####################################################################################################
+# interpolate the data
+#####################################################################################################
+#####################################################################################################
 
 # remove terms from R environment except for:
 rm(list=setdiff(ls(), c("GRM_data_conv", "SMPS_data_conv", "files", "dyn_shape_factor", "GRM_data_TA", "SMPS_data_TA",
                         "merged_data", "TS_merged_data", "SMPS_Dg_copy", "GRM_Dg_copy", "convert_list_df", "GRM_dlogDg", 
-                        "SMPS_data_dNdlogDg", "GRM_data_dNdlogDg", "GRM_dlogDg_copy")))
+                        "SMPS_data_dNdlogDg", "GRM_data_dNdlogDg", "GRM_dlogDg_copy",
+                        "TS_merged_data_plot")))
 
-# identify the outliers based on the the fitted smooth spline
-
-######################################################################################################
-# Interpolate the merged Dg serie 
-######################################################################################################
-
-# Interpolate using a smooth spline (3-grade polynom)
-
-# set the 0 values as NA
-TS_merged_data_interpolate <- TS_merged_data[[1]][[3]]
-TS_merged_data_interpolate[TS_merged_data_interpolate[] == 0] <- NA
-
-# preavious tests showed that interpolating the data using a cubic spline
-# can produce several peaks in the upper part of the size distribution
-# thus, before interpolating the data we need to transform the dN/dlogDg values
-# convert the data as ln(dN/dlogDg)
-
-for (i in 2:length(TS_merged_data_interpolate )) {
-  TS_merged_data_interpolate[,i] <- log(TS_merged_data_interpolate[,i])
-}
-
-
-# x is Dg before interpolation
-x <- data.frame(TS_merged_data_interpolate[,1])
-
-# y is the number concentration of particles at different times
-y <- list()
-
-for (i in 2:length(TS_merged_data_interpolate)){
-  y[[i]] <- data.frame(TS_merged_data_interpolate[,i])
-}
-
-# drop the NULL terms in the list
-y <- y[lengths(y) != 0]
-
-# the smoothspline function does not support missing values
-# so remove the missing values from each column
-# create a list containing the Dg-dN pair 
-# the NA values has been removed so each object in the nested list has different number of rows
-
-xy <- list()
-
-for (i in 1:length(y)) {
-  xy[[i]] <- cbind(x[,1],y[[i]][,1])
-  xy[[i]] <- na.omit(xy[[i]])
-  xy[[i]] <- data.frame(xy[[i]])
-  colnames(xy[[i]]) <- c("x", "y")
-}
-
-# generate the spline function
-# all the observation data are true
-# spline.res = smooth.spline(xy$x, xy$y, spar = 0, all.knots = TRUE)
-
-# apply the spline function to each column in the original dataframe
-# which correspond to the different dfs in the list
-spline.res <- list()
-
-for (i in 1:length(xy)) {
-  spline.res[[i]] <- smooth.spline(xy[[i]]$x, xy[[i]]$y, spar = 1, all.knots = F)
-}
-
-######################################################################################################
-# Build a new size distribution dlogDg = 1/64 & Interpolate the merged Dg serie - test
-######################################################################################################
-
-######################################################################################################
-# Create a new diameter serie for interpolation
-
-# D1 and D2 are two consecutive diameters
-# dlogDg = log10(D2/D1) = 1/64 for SMPS
-# midpoint^2 =  D1*D2
-
-# D2 = D1 * 10^(1/64)
-# midpoint^2 =  D1*D1 * 10^(1/64)
-# midpoint^2 =  D1^2 * 10^(1/64)
-# D1^2 = midpoint^2/10^(1/64)
-# D2^2 = midpoint^2*10^(1/64)
-
-# calculate the start and end Dg of the size distribution 
-# use the first and last midpoint of the serie
-midpoint_start <-  TS_merged_data[[1]][[3]][1,1]
-D1 <- sqrt((midpoint_start^2)/10^(1/64))
-midpoint_end <-  TS_merged_data[[1]][[3]][nrow(TS_merged_data[[1]][[3]]),1]
-Dend <- sqrt((midpoint_end^2)*10^(1/64))
-
-# generate the new series of Dg for the whole merged size distribution dlogDg = 1/64
-
-# create an empty list
-D1Dend_interpolation <- list()
-
-# assign the starting point of the sequence/list as D1
-D1Dend_interpolation[[1]] <- D1
-
-# D2 = D1*10^(1/64); Di = D[[i-1]]*10^(1/64)
-# calculate the new element based on the preavious one
-# here we set the upper limit to be Dend
-# if (D1Dend_interpolation[[i]] >= Dend) {break}
-
-for (i in 2:10^6) {
-  D1Dend_interpolation[[i]] <- (D1Dend_interpolation[[i-1]])*10^(1/64)
-  if (D1Dend_interpolation[[i]] >= Dend) {
-    break }
-}
-
-# calculate the new mid point diameters
-# midpoint^2 =  D1*D2
-midpoint_interpolation <- list()
-
-for (i in 1:(length(D1Dend_interpolation)-1)) { # exclude the last term of the list
-  midpoint_interpolation[[i]] <- sqrt(D1Dend_interpolation[[i]]*D1Dend_interpolation[[i+1]])
-}
-
-# convert the list into a sequence of numbers
-midpoint_interpolation <- convert_list_df(midpoint_interpolation)
-midpoint_interpolation <- unlist(midpoint_interpolation[,1])
-
-######################################################################################################
-# use a smooth line to interpolate the new Dg serie
-######################################################################################################  
-
-# apply the function spline.res to the new Dg 
-spline_interpolation <- list()
-
-for (i in 1:length(spline.res)){
-  spline_interpolation[[i]] <- data.frame(predict(spline.res[[i]], midpoint_interpolation))
-}
-
-# the interpolated data will have different numbers of rows
-# use the function full join to merge the data
-# nrow is the maximum number of interpolated diameters (midpoint_interpolation)
-# ncol is the maximum number of column in the original transposed dataframe
-
-# create a new empty dataframe
-Interpolation_output <- matrix(nrow = length(midpoint_interpolation), ncol = length(TS_merged_data[[1]][[3]]))
-
-# the first column in the dataframe corresponds to the new midpoint serie
-Interpolation_output[,1] <- midpoint_interpolation
-
-# the full join function will return a dataframe with three columns
-# the first column correponds to the new midpoint diameter 
-# the second column and the third column are the data from two different joint time series
-# you can only join two terms at once
-# full join all the terms in the list, the first time interval is constant
-# while the second term change
-# in the full join output keep only the third column which is the variable [,3]
-
-for (i in 1:length(spline_interpolation)) {
-  Interpolation_output[,i+1] <- (full_join(spline_interpolation[[i]], spline_interpolation[[i]], by = "x"))[,3]
-}
-
-colnames(Interpolation_output) <- colnames(TS_merged_data[[1]][[3]])
-
-Interpolation_output <- data.frame(Interpolation_output)
-
-# check the output
-i = 1
-identical(spline_interpolation[[i]][,2], Interpolation_output[,i+1])
-identical(Interpolation_output[,1], midpoint_interpolation)
-
-######################################################################################################
-# only consider the interpolated value starting/ending from/to valid measurements
-######################################################################################################
-# Identify the first row that is not NA for each column
-# larger volumes > 10 um have dN = 0
-# when interpolating, those values become negative or produce spikes
-# this is not ok when normalization the data
-# these problematic data have to be replaced as NA in the interpolation outputs
-
-# Identify the first and last row that is not NA for each column in the original merged size distributions 
-
-# prepare the data for corrections
-correct_Interpolation_output <- list()
-
-for (i in 2:length(Interpolation_output)) {
-  correct_Interpolation_output[[i]] <- data.frame(Interpolation_output[,c(1,i)])
-}
-
-# from the merged Dg serie before interpolation identify the first and last Dg corresponding to valid measurements
-valid_meas <- list()
-
-for (i in 2:length(TS_merged_data_interpolate)) {
-  valid_meas[[i]] <- data.frame(TS_merged_data_interpolate[,c(1,i)])
-}
-
-# remove the NA values
-for (i in 2:length(valid_meas)) {
-  valid_meas[[i]] <- na.omit(valid_meas[[i]])
-}
-
-# in the interpolation output 
-# for each date time
-# replace the value outside the Dg interval corresponding to valid measurements
-for (i in 2:length(correct_Interpolation_output)) {
-  for (j in 1:nrow(correct_Interpolation_output[[i]])) {
-    if(correct_Interpolation_output[[i]]$Dg[j] <= valid_meas[[i]]$Dg[1] | correct_Interpolation_output[[i]]$Dg[j] >= valid_meas[[i]]$Dg[nrow(valid_meas[[i]])]){
-      correct_Interpolation_output[[i]][j,2] <- NA }
-    else {}
-  }
-}
-
-# save the output 
-Interpolation_output_NA <- Interpolation_output
-
-for (i in 2:length(Interpolation_output_NA)) {
-  Interpolation_output_NA[,i] <- correct_Interpolation_output[[i]][,2]
-}
-
-# now reconvert the values in dN/dlogDg
-for (i in 2:length(Interpolation_output_NA)) {
-  Interpolation_output_NA[,i] <- exp(Interpolation_output_NA[,i])
-}
-
-# also ensure all the negative values are as NA
-for (i in 2:length(Interpolation_output_NA)) {
-  for (j in 1:nrow(Interpolation_output_NA)) {
-    if ((Interpolation_output_NA[j,i] < 0) == TRUE | is.na(Interpolation_output_NA[j,i]) == TRUE) {
-      Interpolation_output_NA[j,i] = NA} 
-    else{}
-  }
-}
-
-######################################################################################################
-# plot the data - interpolation
-######################################################################################################
-
-par(mfrow= c(2,2))
-
-plot(TS_merged_data[[1]][[3]][,1],TS_merged_data[[1]][[3]][,2], log = "xy",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     main= "dN/dlogDg at 11:07",
-     xlim = c(0.01, 100),
-     ylim = c(0.0005, 1500), pch = 20)
-points(Interpolation_output_NA$Dg, Interpolation_output_NA[,2], col = "green", pch = 20)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-axis(1, at = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Merged data", "Interpolated values"),
-       pch = c(20,20,20),
-       col = c("black", "green"), cex=0.75)
-
-
-plot(TS_merged_data[[1]][[3]][,1],TS_merged_data[[1]][[3]][,4], log = "xy",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     main= "dN/dlogDg at 11:31",
-     xlim = c(0.01, 100),
-     ylim = c(0.0005, 1500), pch = 20)
-points(Interpolation_output_NA$Dg, Interpolation_output_NA[,4], col = "green", pch = 20)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-axis(1, at = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Merged data", "Interpolated values"),
-       pch = c(20,20,20),
-       col = c("black", "green"), cex=0.75)
-
-
-plot(TS_merged_data[[1]][[3]][,1],TS_merged_data[[1]][[3]][,6], log = "xy",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     main= "dN/dlogDg at 11:55",
-     xlim = c(0.01, 100),
-     ylim = c(0.0005, 1500), pch = 20)
-points(Interpolation_output_NA$Dg, Interpolation_output_NA[,6], col = "green", pch = 20)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-axis(1, at = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Merged data", "Interpolated values"),
-       pch = c(20,20,20),
-       col = c("black", "green"), cex=0.75)
-
-
-plot(TS_merged_data[[1]][[3]][,1],TS_merged_data[[1]][[3]][,9], log = "xy",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     main= "dN/dlogDg at 12:31",
-     xlim = c(0.01, 100),
-     ylim = c(0.0005, 1500), pch = 20)
-points(Interpolation_output_NA$Dg, Interpolation_output_NA[,9], col = "green", pch = 20)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-axis(1, at = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Merged data", "Interpolated values"),
-       pch = c(20,20,20),
-       col = c("black", "green"), cex=0.75)
-
-
-######################################################################################################
-######################################################################################################
-######################################################################################################
 # build a function to interpolate the data for all df
-######################################################################################################
-######################################################################################################
-######################################################################################################
 
 interpolate_data <- function(TS_merged_df){
+  
   # Interpolate the merged Dg serie 
-  # set the 0 values as NA
+  # set the 0 values as NA as the log(data) will be calculated
   TS_merged_data_interpolate <- data.frame(TS_merged_df)
   TS_merged_data_interpolate[TS_merged_data_interpolate[] == 0] <- NA
   
+  # preavious tests showed that interpolating the data using a cubic spline
+  # can produce several peaks in the upper part of the size distribution
+  # thus, before interpolating the data we need to transform the dN/dlogDg values
   # convert the data as ln(dN/dlogDg)
   for (i in 2:length(TS_merged_data_interpolate)) {
     TS_merged_data_interpolate[,i] <- log(TS_merged_data_interpolate[,i])
@@ -1001,10 +740,10 @@ interpolate_data <- function(TS_merged_df){
   }
   
   # generate the spline function
-  # all the observation data are true
-  # spline.res = smooth.spline(xy$x, xy$y, spar = 0, all.knots = F)
+  # all the observation data are FALSE
+  # spline.res = smooth.spline(xy$x, xy$y, spar = 1, all.knots = F)
   
-  # apply the spline function to each column in the original dataframe
+  # apply the spline function to each column in the original df
   # which correspond to the different dfs in the list
   spline.res <- list()
   
@@ -1012,8 +751,8 @@ interpolate_data <- function(TS_merged_df){
     spline.res[[i]] <- smooth.spline(xy[[i]]$x, xy[[i]]$y, spar = 1, all.knots = F)
   }
   
-  ######################################################################################################
-  # Create a new diameter serie for interpolation
+  #####################################################################################################
+  # create a new diameter serie for interpolation
   
   # D1 and D2 are two consecutive diameters
   # dlogDg = log10(D2/D1) = 1/64 for SMPS
@@ -1063,9 +802,9 @@ interpolate_data <- function(TS_merged_df){
   midpoint_interpolation <- convert_list_df(midpoint_interpolation)
   midpoint_interpolation <- unlist(midpoint_interpolation[,1])
   
-  ######################################################################################################
+  #####################################################################################################
   # use a smooth line to interpolate the new Dg serie
-   
+  
   # apply the function spline.res to the new Dg 
   spline_interpolation <- list()
   
@@ -1076,15 +815,15 @@ interpolate_data <- function(TS_merged_df){
   # the interpolated data will have different numbers of rows
   # use the function full join to merge the data
   # nrow is the maximum number of interpolated diameters (midpoint_interpolation)
-  # ncol is the maximum number of column in the original transposed dataframe
+  # ncol is the maximum number of column in the original transposed df
   
-  # create a new empty dataframe
+  # create a new empty df
   Interpolation_output <- matrix(nrow = length(midpoint_interpolation), ncol = length(TS_merged_df))
   
-  # the first column in the dataframe corresponds to the new midpoint serie
+  # the first column in the df corresponds to the new midpoint serie
   Interpolation_output[,1] <- midpoint_interpolation
   
-  # the full join function will return a dataframe with three columns
+  # the full join function will return a df with three columns
   # the first column correponds to the new midpoint diameter 
   # the second column and the third column are the data from two different joint time series
   # you can only join two terms at once
@@ -1158,13 +897,6 @@ interpolate_data <- function(TS_merged_df){
   return(Interpolation_output_NA)
 }
 
-test <- interpolate_data(TS_merged_data[[1]][[3]])
-
-identical(test, Interpolation_output_NA)
-
-# drop useless files from the environment
-rm(Interpolation_output_NA)
-
 # apply the function to all dfs
 interpolated_df <- TS_merged_data
 
@@ -1174,17 +906,66 @@ for (i in 1:length(TS_merged_data)) {
   }
 }
 
-######################################################################################################
-######################################################################################################
-######################################################################################################
-# Normalisation
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+# plot an example of interpolated size distribution
+#####################################################################################################
 
-######################################################################################################
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
+
+i = 1
+j = 3
+
+# for plotting the data using a log scale remove NAs and 0 values
+interpolated_df_plot <- interpolated_df[[i]][[j]][which(is.na(interpolated_df[[i]][[j]][,4]) == F),]
+interpolated_df_plot <- interpolated_df_plot[which(interpolated_df_plot[,4] != 0),]
+
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4], color = 'df1', shape = 'df1'),  size=3, stroke = 2)+
+  geom_point(data = interpolated_df_plot, aes(x= interpolated_df_plot[,1], y= interpolated_df_plot[,4], color = 'df2', shape = 'df2'),  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  scale_colour_manual(name = "test",
+                      labels = c("Merged data", "After interpolation"),
+                      values = c("df1" = "black",
+                                 "df2" = "#377eb8"))+ 
+  scale_shape_manual(name = "test",
+                     labels = c("Merged data", "After interpolation"),
+                     values = c("df1" =19,
+                                "df2" =19))+
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle("Interpolation")+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= c(0.36, 0.24)) 
+
+#####################################################################################################
+#####################################################################################################
+# normalization
+#####################################################################################################
+#####################################################################################################
+
+#####################################################################################################
 # separate GRIMM and SMPS data
-######################################################################################################
+#####################################################################################################
+
 # to calculate dN total before interpolation we need to split TS_merged_data
 # SMPS and GRIMM have different dlogDg
 # SMPS dlogDg is 1/64
@@ -1208,25 +989,25 @@ for (i in 1:length(TS_merged_data)) {
   }
 }
 
-# check that the total number of row norm_SMPS - norm_GRM is equal to the number of rom in TS_merged_data
+# check that the total number of row norm_SMPS - norm_GRM is equal to the number of row in TS_merged_data
 i = 3
 j = 89
 nrow(TS_merged_data[[i]][[j]]) == nrow(SMPS_BI[[i]][[j]]) + nrow(GRM_BI[[i]][[j]])
 
-######################################################################################################
+#####################################################################################################
 # build a function to convert dN/dlogDg into dN
-######################################################################################################
+#####################################################################################################
 
 # first subset the GRM_dlogDg_copy, keep only the dlogDg of the GRIMM diameters used in the merged dataset
-
 for (i in 1:length(GRM_dlogDg_copy)) {
   for (j in 1:length(GRM_dlogDg_copy[[i]])) {
     GRM_dlogDg_copy[[i]][[j]] <- GRM_dlogDg_copy[[i]][[j]][which(GRM_dlogDg_copy[[i]][[j]]$Dg >= GRM_Dg_copy[[i]][[j]][1]),]
   }
 }
 
-######################################################################################################
-# Example for GRIMM
+#####################################################################################################
+
+# example for GRIMM
 # for one scenario get dN/dlogDg concentration and the corresponding dlogDg values
 test_GRIMM <- GRM_BI[[1]][[7]]
 dlogDg_GRIMM <- GRM_dlogDg_copy[[1]][[7]][,2]# dlogDg is at the second column 
@@ -1253,10 +1034,11 @@ convert_dNdlogDg_into_dN_GRM <- function(df_dNdlogDg,dlogDg) {
 
 # check the results
 test <- convert_dNdlogDg_into_dN_GRM(GRM_BI[[1]][[7]],GRM_dlogDg_copy[[1]][[7]][,2])
-identical(test_GRIMM_dN, test)
+identical(test_GRIMM_dN, test) # TRUE
 
-######################################################################################################
-# Example for SMPS
+#####################################################################################################
+
+# example for SMPS
 # for one scenario get dN/dlogDg concentration and the corresponding dlogDg values
 test_SMPS <- SMPS_BI[[1]][[7]]
 
@@ -1280,13 +1062,15 @@ convert_dNdlogDg_into_dN <- function(df_dNdlogDg) {
 test <- convert_dNdlogDg_into_dN(SMPS_BI[[1]][[7]])
 identical(test_SMPS_dN, test)
 
-######################################################################################################
+#####################################################################################################
+
 # the same function for SMPS can be used to convert the interpolated data in dN
 # for the interpolated data dlogDg is 1/64
 SD_AI <- interpolated_df
-######################################################################################################
 
-# apply the functions to all dataframes
+#####################################################################################################
+
+# apply the functions to all dfs
 for (i in 1:length(GRM_BI)) {
   for (j in 1:length(GRM_BI[[i]])) {
     GRM_BI[[i]][[j]] <- convert_dNdlogDg_into_dN_GRM(GRM_BI[[i]][[j]], GRM_dlogDg_copy[[i]][[j]][,2])
@@ -1297,12 +1081,12 @@ for (i in 1:length(GRM_BI)) {
 }
 
 # check the results
-identical(test_GRIMM_dN, GRM_BI[[1]][[7]])
-identical(test_SMPS_dN, SMPS_BI[[1]][[7]])
+identical(test_GRIMM_dN, GRM_BI[[1]][[7]]) # TRUE
+identical(test_SMPS_dN, SMPS_BI[[1]][[7]]) # TRUE
 
-######################################################################################################
+#####################################################################################################
 # calculate the total dN
-######################################################################################################
+#####################################################################################################
 
 # build a function to apply to single dfs to calculate the sum of values in each column
 # and save the output as a numeric serie
@@ -1339,7 +1123,7 @@ for (i in 1:length(TS_merged_data)) {
   }
 }
 
-# calculate the total dN, before interpolation, when replacing the outliers, and after interpolation
+# calculate the total dN, before interpolation for GRIMM and SMPS, and after interpolation
 for (i in 1:length(dN_total)) {
   for (j in 1:length(dN_total[[i]])) {
     dN_total[[i]][[j]][,1] <- GRM_data_TA$date
@@ -1349,9 +1133,8 @@ for (i in 1:length(dN_total)) {
   }
 }
 
-# to normalise the data use the ratio between dN total before interpolation
+# to normalize the data use the ratio between dN total before interpolation
 # and dN total calculated after interpolating the data
-
 for (i in 1:length(dN_total)) {
   for (j in 1:length(dN_total[[i]])) {
     dN_total[[i]][[j]] <- add_column(dN_total[[i]][[j]],
@@ -1360,8 +1143,8 @@ for (i in 1:length(dN_total)) {
   } 
 }
 
-# build a function to normalise the data
-normalise_data <- function(interp_df, dN){
+# build a function to normalize the data
+normalize_data <- function(interp_df, dN){
   
   data_norm <- interp_df[,-1]
   for (i in 1:length(data_norm)) {
@@ -1374,142 +1157,92 @@ normalise_data <- function(interp_df, dN){
   return(data_norm)
 }
 
-# test the function to normalise the data
+# test the function to normalize the data
 i = 1
 j = 1
-test <- normalise_data(interpolated_df[[i]][[j]], dN_total[[i]][[j]])
+test <- normalize_data(interpolated_df[[i]][[j]], dN_total[[i]][[j]])
 
-# apply the function to normalise the data
-normalised_df <- interpolated_df
+# apply the function to normalize the data
+normalized_df <- interpolated_df
 
 for (i in 1:length(interpolated_df)) {
   for (j in 1:length(interpolated_df[[i]])) {
-    normalised_df[[i]][[j]] <- normalise_data(interpolated_df[[i]][[j]], dN_total[[i]][[j]])
+    normalized_df[[i]][[j]] <- normalize_data(interpolated_df[[i]][[j]], dN_total[[i]][[j]])
   }
 }
 
-# test dN total after normalisation is consistent with dN before interpolation corrected for outliers
+# test dN total after normalization is consistent with dN before interpolation
 i = 4
 j = 147
 
-test <- convert_dNdlogDg_into_dN(normalised_df[[i]][[j]])
+test <- convert_dNdlogDg_into_dN(normalized_df[[i]][[j]])
 test_dN <- calculate_dN_total(test)
 test_dN - (dN_total[[i]][[j]]$dN_BI_SMPS + dN_total[[i]][[j]]$dN_BI_GRM)
 
-######################################################################################################
-# plot the data - normalisation
-######################################################################################################
+#####################################################################################################
+# plot an example of normalized size distribution
+#####################################################################################################
 
-par(mfrow= c(2,2))
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
 
 i = 1
 j = 3
 
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,2],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:07",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,2],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,2],
-       col = "hotpink", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values"),
-       pch = c(20,20,20),
-       col = c("black", "green", "hotpink" ) ,cex=0.75)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+# for plotting the data using a log scale remove NAs and 0 values
+normalized_df_plot <- normalized_df[[i]][[j]][which(is.na(normalized_df[[i]][[j]][,4]) == F),]
+normalized_df_plot <- normalized_df_plot[which(normalized_df_plot[,4] != 0),]
 
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,4],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,4],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,4],
-       col = "hotpink", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values"),
-       pch = c(20,20,20),
-       col = c("black", "green", "hotpink" ) ,cex=0.75)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4], color = 'df1', shape = 'df1'),  size=3, stroke = 2)+
+  geom_point(data = interpolated_df_plot, aes(x= interpolated_df_plot[,1], y= interpolated_df_plot[,4], color = 'df2', shape = 'df2'),  size=3, stroke = 2)+
+  geom_point(data = normalized_df_plot, aes(x= normalized_df_plot[,1], y= normalized_df_plot[,4], color = 'df3', shape = 'df3'),  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  scale_colour_manual(name = "test",
+                      labels = c("Merged data", "After interpolation", "normalized values"),
+                      values = c("df1" = "black",
+                                 "df2" = "#377eb8",
+                                 "df3" = "#4daf4a"))+ 
+  scale_shape_manual(name = "test",
+                     labels = c("Merged data", "After interpolation", "normalized values"),
+                     values = c("df1" =19,
+                                "df2" =19,
+                                "df3" =19))+
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle("normalization")+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= c(0.36, 0.24)) 
 
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,6],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:55",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,6],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,6],
-       col = "hotpink", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values"),
-       pch = c(20,20,20),
-       col = c("black", "green", "hotpink" ) ,cex=0.75)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,9],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 12:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,9],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,9],
-       col = "hotpink", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values"),
-       pch = c(20,20,20),
-       col = c("black", "green", "hotpink" ) ,cex=0.75)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # Corrrection for particle loss
-######################################################################################################
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
-# remove useless object from the environment
+# remove unnecessary object from the environment
 rm(test, test_GRIMM, test_GRIMM_dN, test_SMPS, test_SMPS_dN, SMPS_BI, GRM_BI, SD_AI)
 
-# Import and interpolate the particle loss table
+# import and interpolate the particle loss table
 setwd("Z:/Clarissa/Data_Optical_Calculation/Loss_Calculation/PLC_all/Loss_data/")
 
 files_PLC <- list.files(pattern = ".csv")
@@ -1519,22 +1252,22 @@ for (i in 1:length(files_PLC)){
   PLC[[i]] <- read.csv(files_PLC[[i]], header = T)
 }
 
-# replace te 0 values (100% particle loss) with NA 
+# replace 0 values (100% particle loss) with NA 
 for (i in 1:length(PLC)) {
   PLC[[i]][PLC[[i]][] == 0] <- NA
 }
 
-# Keep only the shape factors from 1.6 to 2
+# Keep only the shape factors 1 and from 1.6 to 2
 test <- PLC[c(1,7:11)]
 
-identical(test[[3]], PLC[[8]])
+identical(test[[3]], PLC[[8]]) # TRUE
 
-# now save the output as PLC
+# save the output as PLC
 PLC <- test
 
 #####################################################################################################
 # prepare PLC data for calculation
-######################################################################################################
+#####################################################################################################
 
 # PLC is calculated based on the different X scenario 
 # Thus, each PLC files is copied # times = # n-k scenarios
@@ -1548,104 +1281,17 @@ for (i in 1:length(TS_merged_data)) {
 }
 
 # check the output 
-identical(Loss_table[[1]][[1]],Loss_table[[1]][[147]])
-identical(Loss_table[[2]][[1]],Loss_table[[2]][[147]])
-identical(Loss_table[[2]][[1]],Loss_table[[1]][[1]])
+identical(Loss_table[[1]][[1]],Loss_table[[1]][[147]]) # TRUE
+identical(Loss_table[[2]][[1]],Loss_table[[2]][[147]]) # TRUE
+identical(Loss_table[[2]][[1]],Loss_table[[1]][[1]]) # FALSE
 
 #####################################################################################################
-# PLC interpolation - test
-######################################################################################################
-# PLC data must be interpolated at the midpoint Dg series used for interpolating the merged SD
-
-# interpolate the original data, method = linear
-Loss <- Loss_table[[1]][[1]]
-Norm_data <- normalised_df[[1]][[1]]
-
-Loss_interpol <- list()
-for (i in 2:length(Loss)) {
-  Loss_interpol[[i]] <- approx(Loss[,1], Loss[,i], Norm_data[,1], method="linear", ties = mean)
-}
-
-# save the output
-Loss_data  <- list()
-# save the output
-for (i in 2:length(Loss_interpol)) {
-  Loss_data[[i]] <- Loss_interpol[[i]][[2]]
-}
-
-# the first term in the list is the midpoint Dg
-Loss_data[[1]] <- Norm_data[,1]
-
-# bind together the element in the list
-Loss_table_interpol <- do.call(cbind, Loss_data)
-
-colnames(Loss_table_interpol) <- colnames(Loss)
-
-Loss_table_interpol <- data.frame(Loss_table_interpol)
-
-######################################################################################################
-# plot the data - Loss table
-######################################################################################################
-
-par(mfrow= c(1,1))
-
-plot(Loss$dp,Loss$Total.Loss.Aethalometer, 
-     col = "black",
-     xaxt = "n",
-     yaxt = "n",
-     xlim = c(0.01,40),
-     ylim = c(0.1,100),
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = "Loss (%)",
-     main = "Summary - Loss %",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100), labels = c(0.1,1,10,100))
-points(Loss$dp,Loss$Total.Loss.Caps.Blue, col = "blue", pch = 20)
-points(Loss$dp,Loss$Total.Loss.Caps.Red, col = "red", pch = 20)
-points(Loss$dp,Loss$Total.Loss.Nephelometer, col = "yellow", pch = 20)
-points(Loss$dp,Loss$Total.Loss.Grimm, col = "purple", pch = 20)
-points(Loss$dp,Loss$Total.Loss.SkyGrimm, col = "green", pch = 20)
-points(Loss$dp,Loss$Total.Loss.Filters, col = "pink", pch = 20)
-points(Loss$dp,Loss$Total.Loss.SMPS, col = "orange", pch = 20)
-
-legend("bottomright", inset =.02, box.lty = 0,
-       legend = c("Aethalometer", "Caps Blue", "Caps Red", "Nephelometer", "Grimm", "SkyGrimm", "Filters", "SMPS"),
-       pch = c(20,20,20,20,20,20,20),
-       col = c("black", "blue", "red", "yellow", "purple", "green", "pink", "orange"), cex=1)
-
-
-plot(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Aethalometer, 
-     col = "black",
-     xaxt = "n",
-     yaxt = "n",
-     xlim = c(0.01,40),
-     ylim = c(0.1,100),
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = "Loss (%)",
-     main = "Summary - Loss % (Interpolated values)",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100), labels = c(0.1,1,10,100))
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Caps.Blue, col = "blue", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Caps.Red, col = "red", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Nephelometer, col = "yellow", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Grimm, col = "purple", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.SkyGrimm, col = "green", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.Filters, col = "pink", pch = 20)
-points(Loss_table_interpol$dp,Loss_table_interpol$Total.Loss.SMPS, col = "orange", pch = 20)
-
-legend("bottomright", inset =.02, box.lty = 0,
-       legend = c("Aethalometer", "Caps Blue", "Caps Red", "Nephelometer", "Grimm", "SkyGrimm", "Filters", "SMPS"),
-       pch = c(20,20,20,20,20,20,20),
-       col = c("black", "blue", "red", "yellow", "purple", "green", "pink", "orange"), cex=1)
-
+# build a function to interpolate all dfs
 #####################################################################################################
-# build a function to interpolate all df
-######################################################################################################
 
 Loss_interpolation_function <- function(Loss, Norm_data) {
   
+  # interpolate the loss data, method = linear
   Loss_interpol <- list()
   for (i in 2:length(Loss)) {
     Loss_interpol[[i]] <- approx(Loss[,1], Loss[,i], Norm_data[,1], method="linear", ties = mean)
@@ -1653,7 +1299,7 @@ Loss_interpolation_function <- function(Loss, Norm_data) {
   
   # save the output
   Loss_data  <- list()
-  # save the output
+  
   for (i in 2:length(Loss_interpol)) {
     Loss_data[[i]] <- Loss_interpol[[i]][[2]]
   }
@@ -1672,23 +1318,17 @@ Loss_interpolation_function <- function(Loss, Norm_data) {
 }
 
 # apply the function to all df
-Loss_df <- normalised_df
+Loss_df <- normalized_df
 
-for (i in 1:length(normalised_df)) {
-  for (j in 1:length(normalised_df[[i]]) ) {
-    Loss_df[[i]][[j]] <- Loss_interpolation_function(Loss_table[[i]][[j]], normalised_df[[i]][[j]])    
+for (i in 1:length(normalized_df)) {
+  for (j in 1:length(normalized_df[[i]]) ) {
+    Loss_df[[i]][[j]] <- Loss_interpolation_function(Loss_table[[i]][[j]], normalized_df[[i]][[j]])    
   }
 }
 
-# check the output 
-identical(Loss_table_interpol,Loss_df[[1]][[1]])
-
-######################################################################################################
+#####################################################################################################
 # merge Loss_table_interpolated and the normalization_output
-######################################################################################################
-
-# remove useless object from the environment
-rm(Loss, Loss_data, Loss_interpol, Norm_data, Loss_table_interpol)
+#####################################################################################################
 
 # prepare the Loss column, as you will need to divide the dN values by 1 - Loss/100
 for (i in 1:length(Loss_df)) {
@@ -1699,22 +1339,22 @@ for (i in 1:length(Loss_df)) {
   } 
 }
 
-# bind loss and data normalised dfs
+# bind loss and data normalized dfs
 for (i in 1:length(Loss_df)) {
   for (j in 1:length(Loss_df[[i]])) {
-    Loss_df[[i]][[j]] <- cbind(Loss_df[[i]][[j]], normalised_df[[i]][[j]][,-1]) #remove the diameter column since you have two after binding the datasets
+    Loss_df[[i]][[j]] <- cbind(Loss_df[[i]][[j]], normalized_df[[i]][[j]][,-1]) #remove the diameter column since you have two after binding the datasets
     colnames(Loss_df[[i]][[j]])[1] <- "Dg"
     Loss_df[[i]][[j]] <- data.frame(Loss_df[[i]][[j]])
   } 
 }
 
-######################################################################################################
-######################################################################################################
-# Calculate the real size distribution in CESAM
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
+# calculate the real size distribution in CESAM
+#####################################################################################################
+#####################################################################################################
 
-# Calculate the real size distribution in CESAM after correcting for GRM and SMPS particle loss
+# calculate the real size distribution in CESAM after correcting for GRM and SMPS particle loss
 # split the table in two as part of the data must be corrected for the SMPS particle Loss
 # and part for the GRM particle loss
 
@@ -1739,7 +1379,7 @@ for (i in 1:length(SD_CESAM_GRM)) {
   }
 }
 
-# correct the SMPS df for particle loss
+# correct the SMPS dfs for particle loss
 SD_CESAM_SMPS_corr <- SD_CESAM_SMPS
 colnumber <- which(colnames(SD_CESAM_SMPS[[1]][[1]]) == "Total.Loss.SMPS")
 for (i in 1:length(SD_CESAM_SMPS_corr)) {
@@ -1750,7 +1390,7 @@ for (i in 1:length(SD_CESAM_SMPS_corr)) {
   }
 }
 
-# correct the GRM df for particle loss
+# correct the GRM dfs for particle loss
 SD_CESAM_GRM_corr <- SD_CESAM_GRM
 colnumber <- which(colnames(SD_CESAM_GRM[[1]][[1]]) == "Total.Loss.Grimm")
 for (i in 1:length(SD_CESAM_GRM_corr)) {
@@ -1761,7 +1401,7 @@ for (i in 1:length(SD_CESAM_GRM_corr)) {
   }
 }
 
-# now re-combine the two datasets
+# re-combine the two datasets
 SD_CESAM <- SD_CESAM_SMPS_corr
 
 for (i in 1:length(SD_CESAM_SMPS_corr)) {
@@ -1774,131 +1414,72 @@ for (i in 1:length(SD_CESAM_SMPS_corr)) {
 # check the output
 i = 3
 j = 4
-ncol(SD_CESAM[[i]][[j]]) == ncol(Loss_df[[i]][[j]])
-nrow(SD_CESAM[[i]][[j]]) == nrow(Loss_df[[i]][[j]])
-SD_CESAM[[i]][[j]]$Dg == Loss_df[[i]][[j]]$Dg
+ncol(SD_CESAM[[i]][[j]]) == ncol(Loss_df[[i]][[j]]) # TRUE
+nrow(SD_CESAM[[i]][[j]]) == nrow(Loss_df[[i]][[j]]) # TRUE
+SD_CESAM[[i]][[j]]$Dg == Loss_df[[i]][[j]]$Dg # TRUE
 
-######################################################################################################
-# plot the data - CESAM SD
-######################################################################################################
+#####################################################################################################
+# plot an example of CESAM size distribution
+#####################################################################################################
 
-par(mfrow= c(2,2))
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
 
 i = 1
 j = 3
 
-plot(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,2],
-     col = "hotpink",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:07",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,2],
-       col = "black", pch = 20)
-points(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,2],
-       col = "green", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,2],
-       col = "hotpink", pch = 20)# repeat so it can overlap the interpolated values
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,10],
-       col = "blue", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction"),
-       pch = c(20,20,20,20),
-       col = c("black", "green", "hotpink", "blue") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+# for plotting the data using a log scale remove NAs and 0 values
+SD_CESAM_plot <- SD_CESAM[[i]][[j]][which(is.na(SD_CESAM[[i]][[j]][,12]) == F),]
+SD_CESAM_plot <- SD_CESAM_plot[which(SD_CESAM_plot[,12] != 0),]
 
 
-plot(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,4],
-     col = "hotpink",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,4],
-       col = "black", pch = 20)
-points(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,4],
-       col = "green", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,4],
-       col = "hotpink", pch = 20)# repeat so it can overlap the interpolated values
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,12],
-       col = "blue", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction"),
-       pch = c(20,20,20,20),
-       col = c("black", "green", "hotpink", "blue") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4], color = 'df1', shape = 'df1'),  size=3, stroke = 2)+
+  geom_point(data = interpolated_df_plot, aes(x= interpolated_df_plot[,1], y= interpolated_df_plot[,4], color = 'df2', shape = 'df2'),  size=3, stroke = 2)+
+  geom_point(data = normalized_df_plot, aes(x= normalized_df_plot[,1], y= normalized_df_plot[,4], color = 'df3', shape = 'df3'),  size=3, stroke = 2)+
+  geom_point(data = SD_CESAM_plot, aes(x= SD_CESAM_plot[,1], y= SD_CESAM_plot[,12], color = 'df4', shape = 'df4'),  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  scale_colour_manual(name = "test",
+                      labels = c("Merged data", "After interpolation", "normalized values", "After loss correction"),
+                      values = c("df1" = "black",
+                                 "df2" = "#377eb8",
+                                 "df3" = "#4daf4a",
+                                 "df4" = "#984ea3"))+ 
+  scale_shape_manual(name = "test",
+                     labels = c("Merged data", "After interpolation", "normalized values", "After loss correction"),
+                     values = c("df1" =19,
+                                "df2" =19,
+                                "df3" =19,
+                                "df4" =19))+
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle("Correction for particle loss")+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= c(0.36, 0.24)) 
 
-
-plot(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,6],
-     col = "hotpink",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:55",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,6],
-       col = "black", pch = 20)
-points(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,6],
-       col = "green", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,6],
-       col = "hotpink", pch = 20)# repeat so it can overlap the interpolated values
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,14],
-       col = "blue", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction"),
-       pch = c(20,20,20,20),
-       col = c("black", "green", "hotpink", "blue") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-plot(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,9],
-     col = "hotpink",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 12:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,9],
-       col = "black", pch = 20)
-points(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,9],
-       col = "green", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,9],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,17],
-       col = "blue", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction"),
-       pch = c(20,20,20,20),
-       col = c("black", "green", "hotpink", "blue") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # Aethalometer size distribution
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
 SD_Aethalometer <- SD_CESAM
 colnumber <- which(colnames(SD_CESAM[[1]][[1]]) == "Total.Loss.Aethalometer")
@@ -1911,134 +1492,76 @@ for (i in 1:length(SD_CESAM)) {
   }
 }
 
-# check the output
+# check the output Dg column
 i = 4
 j = 18
 
-identical(SD_Aethalometer[[i]][[j]][,1], SD_CESAM[[i]][[j]][,1])
+identical(SD_Aethalometer[[i]][[j]][,1], SD_CESAM[[i]][[j]][,1]) # TRUE
 
-######################################################################################################
-# plot the data - Aethalometer SD
-######################################################################################################
+#####################################################################################################
+# plot an example of Aethalometer size distribution
+#####################################################################################################
 
-par(mfrow= c(2,2))
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
 
 i = 1
 j = 3
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,2],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:07",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,2],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,2],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,10],
-       col = "blue", pch = 20)
-points(SD_Aethalometer[[i]][[j]][,1], SD_Aethalometer[[i]][[j]][,10],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Aethalometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+# for plotting the data using a log scale remove NAs and 0 values
+SD_Aethalometer_plot <- SD_Aethalometer[[i]][[j]][which(is.na(SD_Aethalometer[[i]][[j]][,4]) == F),]
+SD_Aethalometer_plot <- SD_Aethalometer_plot[which(SD_Aethalometer_plot[,12] != 0),]
 
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4], color = 'df1', shape = 'df1'),  size=3, stroke = 2)+
+  geom_point(data = interpolated_df_plot, aes(x= interpolated_df_plot[,1], y= interpolated_df_plot[,4], color = 'df2', shape = 'df2'),  size=3, stroke = 2)+
+  geom_point(data = normalized_df_plot, aes(x= normalized_df_plot[,1], y= normalized_df_plot[,4], color = 'df3', shape = 'df3'),  size=3, stroke = 2)+
+  geom_point(data = SD_CESAM_plot, aes(x= SD_CESAM_plot[,1], y= SD_CESAM_plot[,12], color = 'df4', shape = 'df4'),  size=3, stroke = 2)+
+  geom_point(data = SD_Aethalometer_plot, aes(x= SD_Aethalometer_plot[,1], y= SD_Aethalometer_plot[,12], color = 'df5', shape = 'df5'),  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  scale_colour_manual(name = "test",
+                      labels = c("Merged data", "After interpolation", "normalized values", "After loss correction", expression("Aethalometer"~dN/dlogD[g])),
+                      values = c("df1" = "black",
+                                 "df2" = "#377eb8",
+                                 "df3" = "#4daf4a",
+                                 "df4" = "#984ea3",
+                                 "df5" = "#ff7f00"))+
+  scale_shape_manual(name = "test",
+                     labels = c("Merged data", "After interpolation", "normalized values", "After loss correction", expression("Aethalometer"~dN/dlogD[g])),
+                     values = c("df1" =19,
+                                "df2" =19,
+                                "df3" =19,
+                                "df4" =19,
+                                "df5" =19))+
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle(expression(bold("Aethalometer"~dN/dlogD[g])))+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= c(0.36, 0.24)) 
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,4],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,4],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,4],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,12],
-       col = "blue", pch = 20)
-points(SD_Aethalometer[[i]][[j]][,1], SD_Aethalometer[[i]][[j]][,12],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Aethalometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,6],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:55",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,6],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,6],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,14],
-       col = "blue", pch = 20)
-points(SD_Aethalometer[[i]][[j]][,1], SD_Aethalometer[[i]][[j]][,14],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Aethalometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,9],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 12:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,9],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,9],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,17],
-       col = "blue", pch = 20)
-points(SD_Aethalometer[[i]][[j]][,1], SD_Aethalometer[[i]][[j]][,17],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Aethalometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 # Nephelometer size distribution
-######################################################################################################
-######################################################################################################
+#####################################################################################################
+#####################################################################################################
 
 SD_Nephelometer <- SD_CESAM
 colnumber <- which(colnames(SD_CESAM[[1]][[1]]) == "Total.Loss.Nephelometer")
@@ -2051,139 +1574,79 @@ for (i in 1:length(SD_CESAM)) {
   }
 }
 
-
-# check the output
+# check the output Dg column
 i = 2
 j = 147
 
-identical(SD_Nephelometer[[i]][[j]][,1], SD_CESAM[[i]][[j]][,1])
+identical(SD_Nephelometer[[i]][[j]][,1], SD_CESAM[[i]][[j]][,1]) # TRUE
 
-######################################################################################################
-# plot the data - Nephelometer SD
-######################################################################################################
+#####################################################################################################
+# plot an example of Nephelometer size distribution
+#####################################################################################################
 
-par(mfrow= c(2,2))
+# select the scenario: n = 1.59, k = 0, X = 1
+# plot the data 30 min after the dust injuction peak
 
 i = 1
 j = 3
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,2],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:07",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,2],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,2],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,10],
-       col = "blue", pch = 20)
-points(SD_Nephelometer[[i]][[j]][,1], SD_Nephelometer[[i]][[j]][,10],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Nephelometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+# for plotting the data using a log scale remove NAs and 0 values
+SD_Nephelometer_plot <- SD_Nephelometer[[i]][[j]][which(is.na(SD_Nephelometer[[i]][[j]][,12]) == F),]
+SD_Nephelometer_plot <- SD_Nephelometer_plot[which(SD_Nephelometer_plot[,12] != 0),]
 
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,4],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,4],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,4],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,12],
-       col = "blue", pch = 20)
-points(SD_Nephelometer[[i]][[j]][,1], SD_Nephelometer[[i]][[j]][,12],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Nephelometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
+ggplot()+
+  xlim(c(0.01, 35))+
+  ylim(c(1, 1500))+
+  geom_point(data = TS_merged_data_plot, aes(x= TS_merged_data_plot[,1], y= TS_merged_data_plot[,4], color = 'df1', shape = 'df1'),  size=3, stroke = 2)+
+  geom_point(data = interpolated_df_plot, aes(x= interpolated_df_plot[,1], y= interpolated_df_plot[,4], color = 'df2', shape = 'df2'),  size=3, stroke = 2)+
+  geom_point(data = normalized_df_plot, aes(x= normalized_df_plot[,1], y= normalized_df_plot[,4], color = 'df3', shape = 'df3'),  size=3, stroke = 2)+
+  geom_point(data = SD_CESAM_plot, aes(x= SD_CESAM_plot[,1], y= SD_CESAM_plot[,12], color = 'df4', shape = 'df4'),  size=3, stroke = 2)+
+  geom_point(data = SD_Nephelometer_plot, aes(x= SD_Nephelometer_plot[,1], y= SD_Nephelometer_plot[,12], color = 'df5', shape = 'df5'),  size=3, stroke = 2)+
+  #geom_point(data = SD_Aethalometer_plot, aes(x= SD_Aethalometer_plot[,1], y= SD_Aethalometer_plot[,10], color = 'df6', shape = 'df6'),  size=3, stroke = 2)+
+  
+  scale_y_log10(breaks=c(0.1,1,10,100,1000),
+                labels=c(0.1,1,10,100,1000))+ # Log-scale
+  scale_x_log10()+
+  
+  scale_colour_manual(name = "test",
+                      labels = c("Merged data", "After interpolation", "normalized values", "After loss correction", expression("Aet-Nep"~dN/dlogD[g])),
+                      values = c("df1" = "black",
+                                 "df2" = "#377eb8",
+                                 "df3" = "#4daf4a",
+                                 "df4" = "#984ea3",
+                                 "df5" = "#ff7f00"))+ 
+  scale_shape_manual(name = "test",
+                     labels = c("Merged data", "After interpolation", "normalized values", "After loss correction", expression("Aet-Nep"~dN/dlogD[g])),
+                     values = c("df1" =19,
+                                "df2" =19,
+                                "df3" =19,
+                                "df4" =19,
+                                "df5" =19))+
+  theme_bw()+
+  ylab(expression(dN/dlogD[g]~"("*cm^{-3}*")"))+
+  xlab(expression(paste("Diameter (",mu,"m)")))+
+  ggtitle(expression(bold("Nephelometer"~dN/dlogD[g])))+
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.text.align = 0,
+        axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18),
+        text = element_text(size=18),
+        axis.text = element_text(size=18, colour = "black"),
+        legend.text = element_text(size=18),
+        legend.title = element_blank(),
+        legend.direction = "vertical",
+        legend.position= c(0.36, 0.24)) 
 
+#####################################################################################################
+# before saving out the results
+#####################################################################################################
 
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,6],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 11:55",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,6],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,6],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,14],
-       col = "blue", pch = 20)
-points(SD_Nephelometer[[i]][[j]][,1], SD_Nephelometer[[i]][[j]][,14],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Nephelometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-plot(interpolated_df[[i]][[j]][,1], interpolated_df[[i]][[j]][,9],
-     col = "green",
-     xaxt = "n",
-     yaxt = "n",
-     xlab = expression(paste("Diameter (",mu,"m)")),
-     ylab = expression(paste("dN/dlogDg (",cm^{-3}*")")),
-     xlim = c(0.01, 35),
-     ylim = c(0.0005, 1500),
-     main= "dN/dlogDg at 12:31",
-     log = "xy", pch = 20)
-axis(1, at = c(0.1,1,10), labels = c(0.1,1,10))
-axis(2, at = c(0.1,1,10,100,1000), labels = c(0.1,1,10,100,1000))
-points(TS_merged_data[[i]][[j]][,1], TS_merged_data[[i]][[j]][,9],
-       col = "black", pch = 20)
-points(normalised_df[[i]][[j]][,1], normalised_df[[i]][[j]][,9],
-       col = "hotpink", pch = 20)
-points(SD_CESAM[[i]][[j]][,1], SD_CESAM[[i]][[j]][,17],
-       col = "blue", pch = 20)
-points(SD_Nephelometer[[i]][[j]][,1], SD_Nephelometer[[i]][[j]][,17],
-       col = "gold", pch = 20)
-legend("bottomleft", inset =.02, box.lty = 0,
-       legend = c("Raw data", "After Interpolation", "Normalised values", "After GRIMM-SMPS loss correction", "Nephelometer SD"),
-       pch = c(20,20,20,20,20),
-       col = c("black", "green", "hotpink", "blue", "gold") ,cex=0.6)
-mtext("n = 1.59, k = 0, X = 1", cex = 0.75, side=3,line=0, col = "red")
-
-
-######################################################################################################
-######################################################################################################
-######################################################################################################
-# save the output
-######################################################################################################
-######################################################################################################
-######################################################################################################
-
-# For each instrument, add columns to help identify scenarios
+# before saving out the size distributions of each instruments for different scenarios
+# add the columns with X, n, and k details
 
 add_Xnk_scenario <- function(Instrument_SD, merged_df){
   Instrument_SD <- add_column(Instrument_SD,X=merged_df$X[1],.before = "Dg")
@@ -2195,128 +1658,13 @@ add_Xnk_scenario <- function(Instrument_SD, merged_df){
   return(Instrument_SD)
 }
 
-# test the function for 1 instrument
-i = 2
+# example of Aethalometer size distribution for the scenario: n = 1.59, k = 0, X = 1
+i = 1
 j = 3
-test <- add_Xnk_scenario(SD_Aethalometer[[i]][[j]], merged_data[[i]][[j]])
 
-######################################################################################################
-# CESAM
-######################################################################################################
-# save CESAM data
+SD_Aethalometer_example <- add_Xnk_scenario(SD_Aethalometer[[i]][[j]], merged_data[[i]][[j]])
 
-# add scenario details to all df, instrument = Aethalometer
-for (i in 1:length(SD_CESAM)) {
-  for (j in 1:length(SD_CESAM[[i]])) {
-    SD_CESAM[[i]][[j]] <- add_Xnk_scenario(SD_CESAM[[i]][[j]], merged_data[[i]][[j]])
-    SD_CESAM[[i]][[j]] <- SD_CESAM[[i]][[j]][,-c(6:13)]
-  }
-}
+# remove unnecessary columns
+SD_Aethalometer_example <- SD_Aethalometer_example[,-c(6:13)]
 
-# flatten the nested list
-SD_CESAM_list <- do.call(c, SD_CESAM)
-
-# check the output
-identical(SD_CESAM[[3]][[1]], SD_CESAM_list[[295]])
-
-# bind all the scenario in a large file
-SD_CESAM_df <- convert_list_df(SD_CESAM_list)
-
-# check the output
-
-# flatten the nested list
-SD_CESAM_list <- do.call(c, SD_CESAM)
-
-# check the output
-identical(SD_CESAM[[3]][[1]], SD_CESAM_list[[295]])
-
-# bind all the scenario in a large file
-SD_CESAM_df <- convert_list_df(SD_CESAM_list)
-
-# save the output
-test <- SD_CESAM_df
-
-for (i in 5:length(test)) {
-  for (j in 1:nrow(test)) {
-    test[j,i] <- round(test[j,i], digits = 6) 
-  }
-}
-
-# save the output
-write.csv(test, "Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Maeli2/datasets/SD_output/original/Maeli2_SD_CESAM_original.csv", row.names = F)
-
-######################################################################################################
-# Aethalometer
-######################################################################################################
-
-# add scenario details to all df, instrument = Aethalometer
-for (i in 1:length(SD_Aethalometer)) {
-  for (j in 1:length(SD_Aethalometer[[i]])) {
-    SD_Aethalometer[[i]][[j]] <- add_Xnk_scenario(SD_Aethalometer[[i]][[j]], merged_data[[i]][[j]])
-    SD_Aethalometer[[i]][[j]] <- SD_Aethalometer[[i]][[j]][,-c(6:13)]
-  }
-}
-
-# flatten the nested list
-SD_Aethalometer_list <- do.call(c, SD_Aethalometer)
-
-# check the output
-identical(SD_Aethalometer[[3]][[1]], SD_Aethalometer_list[[295]])
-
-# bind all the scenario in a large file
-SD_Aethalometer_df <- convert_list_df(SD_Aethalometer_list)
-
-# check the output
-
-# check the output
-identical(SD_CESAM_df[,5], SD_Aethalometer_df[,5])
-
-# save the output
-test <- SD_Aethalometer_df
-
-for (i in 5:length(test)) {
-  for (j in 1:nrow(test)) {
-    test[j,i] <- round(test[j,i], digits = 6) 
-  }
-}
-
-# save the output
-write.csv(test, "Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Maeli2/datasets/SD_output/original/Maeli2_SD_Aethalometer_original.csv", row.names = F)
-
-######################################################################################################
-# Nephelometer
-######################################################################################################
-
-# add scenario details to all df, instrument = Nephelometer
-for (i in 1:length(SD_Nephelometer)) {
-  for (j in 1:length(SD_Nephelometer[[i]])) {
-    SD_Nephelometer[[i]][[j]] <- add_Xnk_scenario(SD_Nephelometer[[i]][[j]], merged_data[[i]][[j]])
-    SD_Nephelometer[[i]][[j]] <- SD_Nephelometer[[i]][[j]][,-c(6:13)]
-  }
-}
-
-# flatten the nested list
-SD_Nephelometer_list <- do.call(c, SD_Nephelometer)
-
-# check the output
-identical(SD_Nephelometer[[2]][[1]], SD_Nephelometer_list[[148]])
-
-# bind all the scenario in a large file
-SD_Nephelometer_df <- convert_list_df(SD_Nephelometer_list)
-
-# check the output
-identical(SD_CESAM_df[,5], SD_Nephelometer_df[,5])
-identical(SD_Aethalometer_df[,5], SD_Nephelometer_df[,5])
-
-# save the output
-test <- SD_Nephelometer_df
-
-for (i in 5:length(test)) {
-  for (j in 1:nrow(test)) {
-    test[j,i] <- round(test[j,i], digits = 6) 
-  }
-}
-
-# save the output
-write.csv(test, "Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Maeli2/datasets/SD_output/original/Maeli2_SD_Nephelometer_original.csv", row.names = F)
-
+head(SD_Aethalometer_example)

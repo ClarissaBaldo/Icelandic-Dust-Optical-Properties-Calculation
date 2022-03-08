@@ -1,6 +1,7 @@
 #############################################################################################################
 # upload packages
 #############################################################################################################
+
 library(dplyr)
 library(rlist)
 library(tibble)
@@ -20,6 +21,12 @@ convert_list_df <- function(df_list){
 }
 
 #############################################################################################################
+#############################################################################################################
+# calculation of the modelled average single scattering albedo (SSA) during the experiment
+#############################################################################################################
+#############################################################################################################
+
+#############################################################################################################
 # import calculated Mie coefficients
 #############################################################################################################
 
@@ -29,7 +36,7 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 # create a list using a selected pattern
 filenames <- list.files(pattern="*.csv", full.names=TRUE)
 
-# import selected files
+# import the selected files which correspond to the Mie coefficients calculated at different wavelengths (WL)
 Datafile <- list()
 
 for (i in 1:length(filenames)){
@@ -38,13 +45,13 @@ for (i in 1:length(filenames)){
   colnames(Datafile[[i]])[3] <- "date"
 }
 
-# subset the data from 30 min to 2.5h after the dust injection peak
+# subset the data from 30 min to 2.5 h after the dust injection peak
 for (i in 1:length(Datafile)){
   Datafile[[i]] <- Datafile[[i]][which(Datafile[[i]]$date >= "2019-01-21 11:31:00" & Datafile[[i]]$date <= "2019-01-21 13:31:00"),]
 }
 
 #############################################################################################################
-# get Bext and Bsca calculated based on size distribution data
+# get the extinction coefficient (Bext) and Bsca
 #############################################################################################################
 
 # set new wd
@@ -52,19 +59,29 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 
 Mie_coeff_calculated <- Datafile
 
-# select Xnk, date, Bext and Bsca columns in dfs
+# select Xnk, date, Bext, and Bsca  columns in the dfs
+# X = dynamic shape factor
+# n = real part of the complex refractive index 
+# k = imaginary part of the complex refractive index
+# Bext and Bsca are calculated for a number of X-n-k scenarios
+# X, n, and k parameters were used to correct size distribution measurements from GRIMM and SMPS
+# Bext and Bsca are calculated based on the corrected size distribution measurements
+
 for (i in 1:length(Datafile)){
   Mie_coeff_calculated[[i]] <- Mie_coeff_calculated[[i]][, c(2:5)]
 }
 
 # add WL column
+# each df in the list correspond to Bsca calculated at a certain WL
+# each df contains Bsca calculated for different X-n-k scenarios
+
 WL <- c(370, 450, 470, 520, 550, 590, 660, 700, 880, 950)
 
 for (i in 1:length(Mie_coeff_calculated)) {
   Mie_coeff_calculated[[i]] <- add_column(Mie_coeff_calculated[[i]], "WL" = WL[[i]], .before = 1)
 }
 
-# remove data at 450, 550, and 700 nm
+# remove data at 450, 550, and 700 nm as unnecessary for the comparison
 rm_WL <- c(450, 550, 700)
 
 rm_data <- list()
@@ -88,7 +105,7 @@ SSA_data <- read.csv("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICE
 
 SSA_data$date  <- as.POSIXct(SSA_data$date ,  format =  "%Y-%m-%d %H:%M:%S") # transform as POSIXct
 
-# subset the data from 30 min to 2.5h after the dust injection peak
+# subset the data from 30 min to 2.5 h after the dust injection peak
 SSA_data <- SSA_data[which(SSA_data$date >= "2019-01-21 11:31:00" & SSA_data$date <= "2019-01-21 13:31:00"),]
 
 # measured and modelled Mie coefficients must have the same time length
@@ -134,72 +151,72 @@ library(dplyr)
 
 # lmodel2(y ~ x)
 # both x and y have errors, but these are assumed to be constant and not input
-# this is why we use SMA, but you must set x for the obs you trust more (x for the so-called "ground-truth")
+# this is why we use RMA, but you must set x for the obs you trust more (x for the so-called "ground-truth")
 
-# to calculate the experiment-averaged SSA modelled, perform SMA regression Bsca vs Bext
+# to calculate the experiment-averaged SSA modelled, perform RMA regression Bsca vs Bext
 test <- lmodel2(Bsca ~ Bext, data = Mie_coeff_calculated_scenarios[[1]][[1]])
 
-SSA_SMA <- Mie_coeff_calculated_scenarios
+SSA_RMA <- Mie_coeff_calculated_scenarios
 for (i in 1:length(Mie_coeff_calculated_scenarios)) {
   for (j in 1:length(Mie_coeff_calculated_scenarios[[i]])) {
-    SSA_SMA[[i]][[j]] <- lmodel2(Bsca ~ Bext, data = Mie_coeff_calculated_scenarios[[i]][[j]])
+    SSA_RMA[[i]][[j]] <- lmodel2(Bsca ~ Bext, data = Mie_coeff_calculated_scenarios[[i]][[j]])
   }
 }
 
 ###########################################################################################################
-# build a df with the experiment-averaged SSA modelled results from SMA regression
+# build a df with the experiment-averaged SSA modelled results from RMA regression
 ###########################################################################################################
 
-# calculate sd of experiment-averaged SSA modelled from SMA regression using the estimated confidence intervals
-calculate_SMA_sd <- Mie_coeff_calculated_scenarios
-for (i in 1:length(SSA_SMA)) {
-  for (j in 1:length(SSA_SMA[[i]])) {
-  calculate_SMA_sd[[i]][[j]] <- data.frame(test1 = abs(SSA_SMA[[i]][[j]][["confidence.intervals"]][["2.5%-Slope"]][3] - SSA_SMA[[i]][[j]][["regression.results"]][["Slope"]][3]),
-                                      test2 = abs(SSA_SMA[[i]][[j]][["confidence.intervals"]][["97.5%-Slope"]][3] - SSA_SMA[[i]][[j]][["regression.results"]][["Slope"]][3]))
+# calculate the uncertainty on the experiment-averaged SSA modelled from RMA regression using the estimated confidence intervals
+calculate_RMA_sd <- Mie_coeff_calculated_scenarios
+for (i in 1:length(SSA_RMA)) {
+  for (j in 1:length(SSA_RMA[[i]])) {
+    calculate_RMA_sd[[i]][[j]] <- data.frame(test1 = abs(SSA_RMA[[i]][[j]][["confidence.intervals"]][["2.5%-Slope"]][3] - SSA_RMA[[i]][[j]][["regression.results"]][["Slope"]][3]),
+                                             test2 = abs(SSA_RMA[[i]][[j]][["confidence.intervals"]][["97.5%-Slope"]][3] - SSA_RMA[[i]][[j]][["regression.results"]][["Slope"]][3]))
   }
 }
 
-# select the values with the largest sd
-SSA_SMA_sd <- calculate_SMA_sd
-for (i in 1:length(calculate_SMA_sd)) {
-  for (j in 1:length(calculate_SMA_sd[[i]])) {
-    if (calculate_SMA_sd[[i]][[j]]$test1 > calculate_SMA_sd[[i]][[j]]$test2) {
-      SSA_SMA_sd[[i]][[j]] <- calculate_SMA_sd[[i]][[j]]$test1
+# select the values with the largest uncertainty
+SSA_RMA_sd <- calculate_RMA_sd
+for (i in 1:length(calculate_RMA_sd)) {
+  for (j in 1:length(calculate_RMA_sd[[i]])) {
+    if (calculate_RMA_sd[[i]][[j]]$test1 > calculate_RMA_sd[[i]][[j]]$test2) {
+      SSA_RMA_sd[[i]][[j]] <- calculate_RMA_sd[[i]][[j]]$test1
     } else  {
-      SSA_SMA_sd[[i]][[j]] <- calculate_SMA_sd[[i]][[j]]$test2
+      SSA_RMA_sd[[i]][[j]] <- calculate_RMA_sd[[i]][[j]]$test2
     }
   }
 }
 
-# get the slope of SMA regression line
-SSA_SMA_slope <- Mie_coeff_calculated_scenarios
-for (i in 1:length(SSA_SMA)) {
-  for (j in 1:length(SSA_SMA[[i]])) {
-  SSA_SMA_slope[[i]][[j]] <- SSA_SMA[[i]][[j]][["regression.results"]][["Slope"]][3]
+# get the slope of RMA regression line
+SSA_RMA_slope <- Mie_coeff_calculated_scenarios
+for (i in 1:length(SSA_RMA)) {
+  for (j in 1:length(SSA_RMA[[i]])) {
+    SSA_RMA_slope[[i]][[j]] <- SSA_RMA[[i]][[j]][["regression.results"]][["Slope"]][3]
   }
 }
 
 # add WL column
 Aet_WL <- c(370, 470, 520, 590, 660, 880, 950)
 
-# output experiment-averaged SSA modelled from SMA regression
-SSA_SMA_data <- Mie_coeff_calculated_scenarios
+# output experiment-averaged SSA modelled from RMA regression
+SSA_RMA_data <- Mie_coeff_calculated_scenarios
 
-for (i in 1:length(SSA_SMA_sd)) {
-  for (j in 1:length(SSA_SMA_sd[[i]])) {
+for (i in 1:length(SSA_RMA_sd)) {
+  for (j in 1:length(SSA_RMA_sd[[i]])) {
     
-    SSA_SMA_data[[i]][[j]] <- data.frame("WL" = Aet_WL[i],
+    SSA_RMA_data[[i]][[j]] <- data.frame("WL" = Aet_WL[i],
                                          "Xnk" = Mie_coeff_calculated_scenarios[[i]][[j]][1,2],
-                                         "SSA" = SSA_SMA_slope[[i]][[j]], 
-                                         "SSA_sd" = SSA_SMA_sd[[i]][[j]],
-                                         "SSA_rsd" = SSA_SMA_sd[[i]][[j]]/SSA_SMA_slope[[i]][[j]]*100)
+                                         "SSA" = SSA_RMA_slope[[i]][[j]], 
+                                         "SSA_sd" = SSA_RMA_sd[[i]][[j]],
+                                         "SSA_rsd" = SSA_RMA_sd[[i]][[j]]/SSA_RMA_slope[[i]][[j]]*100)
   }
 }
 
 # combine the data by WL
 SSA_Xnk_WL <- list()
-for (i in 1:length(SSA_SMA_data)) {
-  SSA_Xnk_WL[[i]] <- list.rbind(SSA_SMA_data[[i]])
+for (i in 1:length(SSA_RMA_data)) {
+  SSA_Xnk_WL[[i]] <- list.rbind(SSA_RMA_data[[i]])
 }
 
 #############################################################################################################
@@ -231,9 +248,9 @@ for (i in 1:length(SSA_Xnk_WL)) {
 
 # convert X-n-k values as numeric
 for (i in 1:length(SSA_Xnk_WL)) {
-    SSA_Xnk_WL[[i]]$X <- as.numeric(as.character(SSA_Xnk_WL[[i]]$X))
-    SSA_Xnk_WL[[i]]$n <- as.numeric(as.character(SSA_Xnk_WL[[i]]$n))
-    SSA_Xnk_WL[[i]]$k <- as.numeric(as.character(SSA_Xnk_WL[[i]]$k))
+  SSA_Xnk_WL[[i]]$X <- as.numeric(as.character(SSA_Xnk_WL[[i]]$X))
+  SSA_Xnk_WL[[i]]$n <- as.numeric(as.character(SSA_Xnk_WL[[i]]$n))
+  SSA_Xnk_WL[[i]]$k <- as.numeric(as.character(SSA_Xnk_WL[[i]]$k))
 }
 
 # remove data X=1

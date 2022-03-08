@@ -1,6 +1,7 @@
 #############################################################################################################
 # upload packages
 #############################################################################################################
+
 library(dplyr)
 library(rlist)
 library(tibble)
@@ -20,6 +21,12 @@ convert_list_df <- function(df_list){
 }
 
 #############################################################################################################
+#############################################################################################################
+# comparison between the modelled and measured absorption coefficient (Babs)
+#############################################################################################################
+#############################################################################################################
+
+#############################################################################################################
 # import the calculated Mie coefficients
 #############################################################################################################
 
@@ -29,7 +36,7 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 # create a list using the selected pattern
 filenames <- list.files(pattern="*.csv", full.names=TRUE)
 
-# import the selected correction files
+# import the selected files which correspond to the Mie coefficients calculated at different wavelengths (WL)
 Datafile <- list()
 
 for (i in 1:length(filenames)){
@@ -38,6 +45,7 @@ for (i in 1:length(filenames)){
   colnames(Datafile[[i]])[3] <- "date"
 }
 
+# subset the data from 30 min to 2.5h after the dust injection peak
 for (i in 1:length(Datafile)){
   Datafile[[i]] <- Datafile[[i]][which(Datafile[[i]]$date >= "2019-01-21 11:31:00" & Datafile[[i]]$date <= "2019-01-21 13:31:00"),]
 }
@@ -52,18 +60,28 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 Babs_calculated <- Datafile
 
 # select Xnk, date, and Babs columns in the dfs
+# X = dynamic shape factor
+# n = real part of the complex refractive index 
+# k = imaginary part of the complex refractive index
+# Babs is calculated for a number of X-n-k scenarios
+# X, n, and k parameters were used to correct size distribution measurements from GRIMM and SMPS
+# Babs is calculated based on the corrected size distribution measurements
+
 for (i in 1:length(Datafile)){
   Babs_calculated[[i]] <- Babs_calculated[[i]][, c(2,3,6)]
 }
 
 # change the name of column 3 (Babs) for each df in the list
+# each df in the list correspond to Bsca calculated at a certain WL
+# each df contains Babs calculated for different X-n-k scenarios
+
 WL <- c(370, 450, 470, 520, 550, 590, 660, 700, 880, 950)
 
 for (i in 1:length(Babs_calculated)) {
   colnames(Babs_calculated[[i]])[3] <- sprintf("Babs_mod_%d", WL[i])
 }
 
-# remove data at 450, 550, and 700 nm
+# remove data at 450, 550, and 700 nm as unnecessary for the comparison
 rm_WL <- c("Babs_mod_450", "Babs_mod_550", "Babs_mod_700")
 
 rm_data <- list()
@@ -115,6 +133,7 @@ Babs_data <- read.csv("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/IC
 
 Babs_data$date  <- as.POSIXct(Babs_data$date ,  format =  "%Y-%m-%d %H:%M:%S") # transform as POSIXct
 
+# subset the data from 30 min to 2.5h after the dust injection peak
 Babs_data <- Babs_data[which(Babs_data$date >= "2019-01-21 11:31:00" & Babs_data$date <= "2019-01-21 13:31:00"),]
 
 # get mean Babs measured values only
@@ -155,7 +174,7 @@ for (i in 1:length(Babs_calculated_scenarios)) {
   }
 }
 
-# remove Nas
+# remove NAs
 for (i in 1:length(Babs_comparison)) {
   for (k in 1:length(Babs_comparison[[i]])) {
     Babs_comparison[[i]][[k]] <- na.omit(Babs_comparison[[i]][[k]])
@@ -163,7 +182,7 @@ for (i in 1:length(Babs_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 add_Xnk <- function(df) {
@@ -263,7 +282,7 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 # Test for 1 WL
@@ -371,7 +390,7 @@ for (i in 1:length(Babs_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 for (i in 1:length(Babs_comparison)) {
@@ -448,7 +467,7 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 stat_comparison <- list()
@@ -511,7 +530,7 @@ for (i in 1:length(Babs_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 for (i in 1:length(Babs_comparison)) {
@@ -588,7 +607,7 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 stat_comparison <- list()

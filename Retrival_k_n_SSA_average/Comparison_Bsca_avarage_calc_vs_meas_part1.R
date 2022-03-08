@@ -1,6 +1,7 @@
 #############################################################################################################
 # upload packages
 #############################################################################################################
+
 library(dplyr)
 library(rlist)
 library(tibble)
@@ -20,7 +21,13 @@ convert_list_df <- function(df_list){
 }
 
 #############################################################################################################
-# import the calculated Mie coefficients
+#############################################################################################################
+# comparison between the modelled and measured scattering coefficient (Bsca)
+#############################################################################################################
+#############################################################################################################
+
+#############################################################################################################
+# import the modelled Mie coefficients at 12-min resolution
 #############################################################################################################
 
 # set wd
@@ -29,7 +36,7 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 # create a list using the selected pattern
 filenames <- list.files(pattern="*.csv", full.names=TRUE)
 
-# import the selected correction files
+# import the selected files which correspond to the Mie coefficients calculated at different wavelengths (WL)
 Datafile <- list()
 
 for (i in 1:length(filenames)){
@@ -38,6 +45,7 @@ for (i in 1:length(filenames)){
   colnames(Datafile[[i]])[3] <- "date"
 }
 
+# subset the data from 30 min to 2.5 hours after the dust injection peak
 for (i in 1:length(Datafile)){
   Datafile[[i]] <- Datafile[[i]][which(Datafile[[i]]$date >= "2019-01-21 11:31:00" & Datafile[[i]]$date <= "2019-01-21 13:31:00"),]
 }
@@ -52,18 +60,28 @@ setwd("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Ma
 Bsca_calculated <- Datafile
 
 # select Xnk, date, and Bsca columns in the dfs
+# X = dynamic shape factor
+# n = real part of the complex refractive index 
+# k = imaginary part of the complex refractive index
+# Bsca is calculated for a number of X-n-k scenarios
+# X, n, and k parameters were used to correct size distribution measurements from GRIMM and SMPS
+# Bsca is calculated based on the corrected size distribution measurements
+
 for (i in 1:length(Datafile)){
   Bsca_calculated[[i]] <- Bsca_calculated[[i]][, c(2,3,5)]
 }
 
 # change the name of column 3 (Bsca) for each df in the list
+# each df in the list correspond to Bsca calculated at a certain WL
+# each df contains Bsca calculated for different X-n-k scenarios
+
 WL <- c(370, 450, 470, 520, 550, 590, 660, 700, 880, 950)
 
 for (i in 1:length(Bsca_calculated)) {
   colnames(Bsca_calculated[[i]])[3] <- sprintf("Bsca_mod_%d", WL[i])
 }
 
-# remove data at 450, 550, and 700 nm
+# remove data at 450, 550, and 700 nm as unnecessary for the comparison
 rm_WL <- c("Bsca_mod_450", "Bsca_mod_550", "Bsca_mod_700")
 
 rm_data <- list()
@@ -118,13 +136,14 @@ Bsca_data$date  <- as.POSIXct(Bsca_data$date ,  format =  "%Y-%m-%d %H:%M:%S") #
 Bsca_data <- Bsca_data[which(Bsca_data$date >= "2019-01-21 11:31:00" & Bsca_data$date <= "2019-01-21 13:31:00"),]
 
 
-# import Babs data to get the same time series for Bsca and Babs
+# import the absorption coefficent (Babs) data to get the same time series for Bsca and Babs
 Babs_data <- read.csv("Z:/Clarissa/Data_Optical_calculation/R_Code/Code_final/ICEdust_samples/Maeli2/Nep_Aet_Mie/original/data/Maeli2_Babs_12min_original.csv")
 
 Babs_data$date  <- as.POSIXct(Babs_data$date ,  format =  "%Y-%m-%d %H:%M:%S") # transform as POSIXct
 
 Babs_data <- na.omit(Babs_data)
 
+# subset the data from 30 min to 2.5 hours after the dust injection peak
 Babs_data <- Babs_data[which(Babs_data$date >= "2019-01-21 11:31:00" & Babs_data$date <= "2019-01-21 13:31:00"),]
 
 Bsca_data <- Bsca_data[which(Bsca_data$date %in% Babs_data$date),]
@@ -167,7 +186,7 @@ for (i in 1:length(Bsca_calculated_scenarios)) {
   }
 }
 
-# remove Nas
+# remove NAs
 for (i in 1:length(Bsca_comparison)) {
   for (k in 1:length(Bsca_comparison[[i]])) {
     Bsca_comparison[[i]][[k]] <- na.omit(Bsca_comparison[[i]][[k]])
@@ -175,7 +194,7 @@ for (i in 1:length(Bsca_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 add_Xnk <- function(df) {
@@ -266,7 +285,7 @@ for (i in 1:length(rm_X1)) {
   }
 }
 
-# calculate RMSE
+# calculate the root mean square error (RMSE)
 test_RMSE <-  rm_X1
 for (i in 1:length(rm_X1)) {
   for (k in 1:length(rm_X1[[i]])) {
@@ -275,7 +294,7 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 # Test for 1 WL
@@ -313,12 +332,12 @@ build_stat_df <- function(df_WL, df_list, df_list_RMSE, df_list_R2) {
     stat_comparison$RMSE[i] <- df_list_RMSE[[i]]
     stat_comparison$R2[i] <- df_list_R2[[i]]
   }
-
+  
   return(stat_comparison)
 }
 
 #############################################################################################################
-# apply the function to all df
+# apply the function to all dfs
 
 test <- build_stat_df(Aet_WL[1], rm_X1[[1]], test_RMSE[[1]], test_R2[[1]])
 
@@ -373,7 +392,7 @@ for (i in 1:length(Bsca_calculated_scenarios)) {
   }
 }
 
-# remove Nas
+# remove NAs
 for (i in 1:length(Bsca_comparison)) {
   for (k in 1:length(Bsca_comparison[[i]])) {
     Bsca_comparison[[i]][[k]] <- na.omit(Bsca_comparison[[i]][[k]])
@@ -381,7 +400,7 @@ for (i in 1:length(Bsca_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 for (i in 1:length(Bsca_comparison)) {
@@ -458,16 +477,13 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 stat_comparison <- list()
 for (i in 1:length(rm_X1)) {
   stat_comparison[[i]] <- build_stat_df(Aet_WL[i], rm_X1[[i]], test_RMSE[[i]], test_R2[[i]])
 }
-
-#############################################################################################################
-# for each X-n combination, get the k corresponding to the lowest RMSE value
 
 Bsca_mSD1_results <- stat_comparison
 
@@ -515,7 +531,7 @@ for (i in 1:length(Bsca_calculated_scenarios)) {
   }
 }
 
-# remove Nas
+# remove NAs
 for (i in 1:length(Bsca_comparison)) {
   for (k in 1:length(Bsca_comparison[[i]])) {
     Bsca_comparison[[i]][[k]] <- na.omit(Bsca_comparison[[i]][[k]])
@@ -523,7 +539,7 @@ for (i in 1:length(Bsca_comparison)) {
 }
 
 #############################################################################################################
-# add the X, n,  k columns to the dataframes 
+# add the X, n,  k columns to the dfs 
 #############################################################################################################
 
 for (i in 1:length(Bsca_comparison)) {
@@ -600,7 +616,7 @@ for (i in 1:length(rm_X1)) {
 }
 
 #############################################################################################################
-# for each WL, create a single dataframe containing a summary of the statistic 
+# for each WL, create a single df containing a summary of the statistic for each X-n-k scenario
 #############################################################################################################
 
 stat_comparison <- list()

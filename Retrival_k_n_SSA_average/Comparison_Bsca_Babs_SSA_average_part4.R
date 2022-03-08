@@ -1,5 +1,8 @@
 #############################################################################################################
-# calculate the mean-sd-rsd of X, n, k and SSA by comparing the results of Bsca and Babs
+# after running the codes parts 1-3
+# calculate the mean, standard deviation (SD), and relative standard deviation (RSD)
+# of X, n, k, and SSA selected based on the RMSE values 
+# obtained from the comparison between Bsca and Babs modelled and measured
 #############################################################################################################
 
 library(matrixStats)
@@ -19,7 +22,7 @@ SSA_df = SSA_Xnk_WL[[i]]
 # get the quantile range from 0.1 to 0.5 by 0.1
 range_quantile <- seq(0.1,0.5,0.1)
 
-# subset the data using different quantiles
+# subset the data using different quantiles for RMSE
 Bsca_OG_subset_list <- list()
 Bsca_mSD1_subset_list <- list()
 Bsca_pSD1_subset_list <- list()
@@ -53,7 +56,7 @@ for (i in 1:length(range_quantile)) {
 
 for (i in 1:length(Xnk_comparison)) {
   if (nrow(Xnk_comparison[[i]]) == 0) {
-  
+    
     Xnk_comparison[[i]] <- NA
     
   }
@@ -68,7 +71,7 @@ Xnk_comparison_results <- Xnk_comparison[[1]]
 # to determine SSA model subset SSA results according to Xnk_comparison
 SSA_model_results <- SSA_df[which(SSA_df$Xnk %in% Xnk_comparison_results$Xnk),]
 
-# calculate the average values for k, n, X, SSA and diff
+# calculate the average values for k, n, X, SSA and RMSE
 
 k_WL <- data.frame(WL = Xnk_comparison_results$WL[1], k_mean = mean(Xnk_comparison_results$k, na.rm = T), 
                    k_sd = sd(Xnk_comparison_results$k, na.rm = T), k_rsd = sd(Xnk_comparison_results$k, na.rm = T)/mean(Xnk_comparison_results$k, na.rm = T)*100)
@@ -104,7 +107,7 @@ get_best_Xnk <- function(Bsca_OG_df, Bsca_mSD1_df, Bsca_pSD1_df,
   # get the quantile range from 0.1 to 0.5 by 0.1
   range_quantile <- seq(0.1,0.5,0.1)
   
-  # subset the data using different quantiles
+  # subset the data using different quantiles for RMSE
   Bsca_OG_subset_list <- list()
   Bsca_mSD1_subset_list <- list()
   Bsca_pSD1_subset_list <- list()
@@ -153,7 +156,7 @@ get_best_Xnk <- function(Bsca_OG_df, Bsca_mSD1_df, Bsca_pSD1_df,
   # to determine SSA model subset SSA results according to Xnk_comparison
   SSA_model_results <- SSA_df[which(SSA_df$Xnk %in% Xnk_comparison_results$Xnk),]
   
-  # calculate the average values for k, n, X, SSA and diff
+  # calculate the average values for k, n, X, SSA and RMSE
   
   k_WL <- data.frame(WL = Xnk_comparison_results$WL[1], k_mean = mean(Xnk_comparison_results$k, na.rm = T), 
                      k_sd = sd(Xnk_comparison_results$k, na.rm = T), k_rsd = sd(Xnk_comparison_results$k, na.rm = T)/mean(Xnk_comparison_results$k, na.rm = T)*100)
